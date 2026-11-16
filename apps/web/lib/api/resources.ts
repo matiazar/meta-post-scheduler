@@ -83,8 +83,39 @@ export interface PostView {
     socialAccountId: string;
     network: Network;
     accountName: string;
+    username: string | null;
     captionOverride: string | null;
+    status: TargetStatus;
+    attempts: number;
+    nextAttemptAt: string | null;
+    lastError: string | null;
+    lastErrorCode: string | null;
+    permalink: string | null;
+    publishedAt: string | null;
+    attemptLog: {
+      startedAt: string;
+      finishedAt: string | null;
+      ok: boolean;
+      errorCode: string | null;
+      errorMessage: string | null;
+    }[];
   }[];
+}
+
+export type TargetStatus =
+  'PENDING' | 'QUEUED' | 'PUBLISHING' | 'PUBLISHED' | 'FAILED';
+
+/** Un post del calendario (la API recorta el texto a 140 caracteres). */
+export interface PostListItem {
+  id: string;
+  brand: { id: string; name: string; color: string };
+  caption: string;
+  scheduledAt: string | null;
+  status: PostStatus;
+  aspectRatio: AspectRatio;
+  thumbnailUrl: string | null;
+  mediaCount: number;
+  targets: { network: Network; accountName: string; status: TargetStatus }[];
 }
 
 export interface PostInput {
@@ -141,6 +172,26 @@ export const mediaApi = {
 };
 
 export const postsApi = {
+  /** Posts con fecha en [from, to) (ISO UTC, hasta 100 dias), opcionalmente de una marca. */
+  range: (from: string, to: string, brandId?: string) =>
+    api<PostListItem[]>(
+      `/posts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${
+        brandId ? `&brandId=${encodeURIComponent(brandId)}` : ''
+      }`,
+    ),
+  /** Borradores (con o sin fecha). */
+  drafts: (brandId?: string) =>
+    api<PostListItem[]>(
+      `/posts?status=DRAFT${brandId ? `&brandId=${encodeURIComponent(brandId)}` : ''}`,
+    ),
+  cancel: (id: string) =>
+    api<PostView>(`/posts/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+    }),
+  retry: (id: string) =>
+    api<PostView>(`/posts/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  remove: (id: string) =>
+    api<void>(`/posts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   get: (id: string) => api<PostView>(`/posts/${encodeURIComponent(id)}`),
   create: (input: PostInput & { brandId: string; scheduledAt?: string }) =>
     api<PostView>('/posts', { method: 'POST', body: input }),

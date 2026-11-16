@@ -1,22 +1,28 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { connection } from 'next/server';
+import { Suspense } from 'react';
+import { CalendarView } from '@/components/calendar/calendar-view';
+import { todayInTz } from '@/lib/tz';
 
 export const metadata: Metadata = { title: 'Calendario' };
 
+// "Hoy" depende de la hora del pedido: se calcula despues de connection(), dentro de Suspense
+async function Calendar() {
+  await connection();
+  return <CalendarView today={todayInTz()} />;
+}
+
 export default function CalendarPage() {
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-xl font-semibold">Calendario</h1>
-      <p className="mt-2 text-sm text-muted">
-        Acá vas a ver tus posts programados y publicados. Primero conectá Meta y
-        asigná tus cuentas a una marca desde Ajustes.
-      </p>
-      <Link
-        href="/posts/new"
-        className="mt-4 inline-flex h-9 items-center rounded-md bg-accent px-3.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+    <div className="max-w-6xl">
+      <h1 className="mb-4 text-xl font-semibold">Calendario</h1>
+      <Suspense
+        fallback={
+          <div className="h-96 animate-pulse rounded-lg bg-surface-muted" />
+        }
       >
-        Nuevo post
-      </Link>
+        <Calendar />
+      </Suspense>
     </div>
   );
 }

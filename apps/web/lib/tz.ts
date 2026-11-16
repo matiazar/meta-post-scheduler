@@ -30,3 +30,13 @@ export function sameMinute(a: string | null, b: string | null): boolean {
     Math.floor(Date.parse(a) / 60000) === Math.floor(Date.parse(b) / 60000)
   );
 }
+
+/** El dia de hoy en Tucuman, como "yyyy-MM-dd". */
+export function todayInTz(): string {
+  return formatInTimeZone(new Date(), TIME_ZONE, 'yyyy-MM-dd');
+}
+
+/** Fecha y hora de Tucuman para mostrar, ej. "01/12/2026 14:30". */
+export function formatZoned(iso: string): string {
+  return formatInTimeZone(iso, TIME_ZONE, 'dd/MM/yyyy HH:mm');
+}

@@ -11,7 +11,7 @@
 - [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: 030cdb0)
 - [COMPLETA] Etapa 7: Web base (tokens y modo claro/oscuro, componentes propios, cliente API con cookie, proxy de sesion, login, shell con navegacion, ajustes de Meta y de marcas con cuentas; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: 333e3ad)
 - [COMPLETA] Etapa 8: Web composer (dropzone con reordenar por arrastre y por botones, proporcion y CROP/PAD con vista previa real, copy base con tabs por cuenta y contador de IG, preview de feed IG y FB, fecha y hora de Tucuman, guardar borrador / programar / publicar ahora, edicion de borradores y programados; typecheck, lint y build limpios; probado en el navegador contra la API real con R2 en memoria; commit: 4296b8c)
-- [PENDIENTE] Etapa 9: Web calendario y detalle
+- [COMPLETA] Etapa 9: Web calendario y detalle (vista mes y semana, chips por marca y estado, filtro por marca, drag para reprogramar, Sheet de detalle con intentos, reintentar, cancelar y eliminar, borradores sin fecha; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: pendiente)
 - [PENDIENTE] Etapa 10: Prueba punta a punta (manual con Matias)
 
 ## Decisiones tomadas sin el usuario
@@ -134,9 +134,21 @@
 - No se pudo probar: subida real contra R2 (se uso un R2 en memoria que reemplaza `S3Client.send` desde un script fuera del repo), cuentas sincronizadas con Meta (las dos cuentas de prueba se insertaron a mano en la DB de desarrollo y ya se borraron), arrastre real con el mouse (el navegador de prueba solo permitio disparar los eventos), modo oscuro y lector de pantalla. Eso queda para la etapa 10 con Matias
 - Servidores de dev parados y datos de prueba borrados de la base de desarrollo
 
+## Etapa 9: decisiones y notas
+
+- Calendario en `/` (`components/calendar/`): mes (42 dias, 6 semanas) y semana (lunes a domingo), navegacion anterior/hoy/siguiente, filtro por marca. Un `GET /posts?from&to[&brandId]` por rango y otro `GET /posts?status=DRAFT` para los borradores sin fecha (se muestran debajo de la grilla). Se recarga solo cada 60 s porque el publicador cambia los estados aparte
+- Chip: borde del color de la marca, hora de Tucuman, puntito de estado (ambar con pulso si publica), FB/IG y el comienzo del texto. En el mes se ven 3 por dia y "+N mas" lleva a la vista semana de ese dia. En celular no hay grilla: agenda por dia
+- Drag para reprogramar: arrastre nativo, solo programados y borradores con fecha; cambia el dia y conserva la hora (`POST /schedule` o `PATCH scheduledAt` en borradores). Si la API rechaza (fecha pasada, destinos ya encolados) se muestra su mensaje en un toast y no cambia nada. Alternativa con teclado: abrir el detalle y "Editar"
+- Detalle: `Sheet` lateral (`components/ui/sheet.tsx`, `<dialog>` nativo, Esc y click afuera cierran) con estado, fecha, imagenes, texto, un bloque por destino (estado, error legible tal cual lo guarda la API, proxima fecha de reintento, link a la publicacion, historial de intentos) y acciones: Editar (borrador/programado), Reintentar fallidos (fallado/parcial), Cancelar publicacion y Eliminar (borrador/cancelado), estas dos con confirmacion
+- El permalink viene de Meta: solo se muestra el link si empieza con https y abre con `rel="noopener noreferrer"`
+- "Hoy" se calcula en el servidor (`await connection()` dentro de `Suspense`) porque `new Date()` en un componente prerenderizado rompe el build con cacheComponents. `lib/tz.ts` suma `todayInTz`, `formatZoned`
+- Sin dependencias nuevas
+- Pruebas manuales: 9 posts de prueba en distintos estados (programados, fallado, parcial con publicado, borradores con y sin fecha, dos marcas): mes, semana, "+N mas", filtro por marca, abrir detalle, reintentar, cancelar, eliminar, historial y link de un parcial, drag a otro dia (queda con la misma hora) y a un dia pasado (mensaje de la API), Esc cierra el Sheet, agenda en 375 px sin scroll horizontal
+- No se pudo probar: arrastre real con el mouse (solo eventos disparados por script), publicado y fallos reales (los estados se pusieron por SQL), modo oscuro, lector de pantalla, zona horaria distinta a la de Tucuman en el navegador. Datos de prueba borrados y servidores parados
+
 ## Pendiente de Matias
 
 - Agregar a `apps/api/.env`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN`, `TOKEN_ENC_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION`, `META_REDIRECT_URI`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (en `.env.test` solo hace falta `DATABASE_URL` para los e2e) (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
-Ultima actualizacion: etapa 8 completa (web composer)
+Ultima actualizacion: etapa 9 completa (web calendario y detalle)

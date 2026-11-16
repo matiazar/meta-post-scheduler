@@ -163,3 +163,20 @@ Conceptos nuevos:
 Donde verlo en el codigo: apps/web/components/composer/composer.tsx (perform, checkAction), apps/web/components/composer/image-picker.tsx (reordenar), apps/web/lib/tz.ts
 
 Para practicar: agregar un boton "Mañana a las 10:00" en la seccion de fecha que complete los dos campos usando `isoToZoned` y `zonedToIso`.
+
+## Etapa 9: Web calendario y detalle
+
+Conceptos nuevos:
+- `key` para reiniciar un componente: `CalendarBody` recibe `key={vista|primer dia|marca}`. Cuando cambia el rango o el filtro, React lo desmonta y monta uno nuevo, con su propio `useApiData` en estado "cargando". Asi nunca se ven posts del mes anterior mientras llegan los nuevos, y no hace falta resetear estado a mano.
+  Equivalente en Laravel: `wire:key` en Livewire, o recargar la pagina con otros parametros.
+  Diferencia clave: en React el estado vive en el componente; cambiarle la `key` es la forma de decir "es otra cosa, empeza de cero".
+- Hora actual con `cacheComponents`: `new Date()` en un componente que se prerenderiza falla el build (la pagina quedaria con la fecha del dia del build). Se calcula en un server component despues de `await connection()`, dentro de `<Suspense>`, y baja como prop (`today`). El resto de la pagina sigue prerenderizado.
+  Equivalente en Laravel: algo que no se puede cachear (`now()`) y por eso queda fuera de `Cache::remember` o de `@cache` en Blade.
+  Diferencia clave: Next prerenderiza por defecto y te obliga a declarar que parte depende del pedido.
+- Calendario sin libreria: los dias son texto `yyyy-MM-dd` y la aritmetica se hace con `Date.UTC` (`lib/calendar.ts`), asi no depende de la zona del navegador. Cada post se ubica por el dia que ve el usuario en Tucuman (`isoToZoned`), y para reprogramar se cambia el dia y se conserva la hora (`zonedToIso`). El arrastre reusa el drag nativo de la etapa 8; la alternativa con teclado es abrir el detalle y "Editar".
+  Equivalente en Laravel: `Carbon::startOfWeek()`, `addMonths()`.
+  Diferencia clave: JS no tiene Carbon; con strings y UTC se evitan los saltos por horario de verano y por zona.
+
+Donde verlo en el codigo: apps/web/components/calendar/calendar-view.tsx (CalendarBody, drop), apps/web/app/(app)/page.tsx (connection), apps/web/lib/calendar.ts
+
+Para practicar: agregar un contador "3 programados" junto al titulo del mes, calculado con `range.data` en `CalendarBody`.
