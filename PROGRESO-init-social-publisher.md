@@ -9,7 +9,7 @@
 - [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: 00b0f79)
 - [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: 1270475)
 - [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: 030cdb0)
-- [PENDIENTE] Etapa 7: Web base
+- [COMPLETA] Etapa 7: Web base (tokens y modo claro/oscuro, componentes propios, cliente API con cookie, proxy de sesion, login, shell con navegacion, ajustes de Meta y de marcas con cuentas; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: pendiente)
 - [PENDIENTE] Etapa 8: Web composer
 - [PENDIENTE] Etapa 9: Web calendario y detalle
 - [PENDIENTE] Etapa 10: Prueba punta a punta (manual con Matias)
@@ -106,9 +106,23 @@
 - Review etapa 6: security-review sin hallazgos (sin endpoints ni inputs nuevos); code-review con 2: fallos de job sin reportar (arreglado) y una consulta de conexion por destino (saltado)
 - Falta probar con Meta real: orden de errores de IG y tiempos de procesamiento de containers (etapa 10)
 
+## Etapa 7: decisiones y notas
+
+- Sin shadcn/ui por CLI: componentes escritos a mano (Button, Field/Input/Select/Textarea, Badge, Toast, ConfirmDialog con `<dialog>` nativo) en `apps/web/components/ui`, con los tokens zinc + indigo del spec en `globals.css` (claro y oscuro con `prefers-color-scheme`). Tipografia Inter como pide el spec. Paquetes nuevos: react-hook-form, zod, @hookform/resolvers y lucide-react (los tres primeros salen del spec; lucide es el set de iconos de shadcn)
+- Las skills de diseno: se uso `frontend-design`. `design-taste-frontend` esta pensada para landings y deja fuera dashboards y paneles, asi que solo se aplicaron sus chequeos de contraste, estados vacios/error/carga y consistencia. `emil-design-eng` no se consulto: el movimiento es minimo (toast, feedback de click) y respeta `prefers-reduced-motion`
+- Sesion: `proxy.ts` solo revisa que exista la cookie `sp_session` (chequeo optimista, la API decide). Un 401 en cualquier llamada lleva a `/login` por el router de Next (`setUnauthorizedHandler`, lo registra el menu)
+- Datos: `lib/api/client.ts` (fetch con `credentials: include`, errores de Nest con texto o lista, 413 de multer traducido), `lib/api/resources.ts` (tipos y llamadas) y `lib/use-api-data.ts`. Las pantallas de ajustes son client components, como pide el spec para lo interactivo
+- Meta: la web pide `GET /meta/connect-url` y navega a esa URL. Vuelve a `/settings/meta?status=ok|permissions|denied|error` y se muestra un aviso. `useSearchParams` va dentro de `Suspense` (cacheComponents)
+- Marcas: alta, edicion y baja (con confirmacion; la API devuelve 409 si ya tiene posts). Cuentas sociales con select para asignar marca o dejarlas sin marca
+- Para produccion: la cookie de sesion la pone la API, asi que web y API tienen que compartir dominio padre (ej. `app.dominio.com` y `api.dominio.com`) y `NEXT_PUBLIC_API_URL` apuntar a la API. En local sirve porque cookies no distinguen puertos
+- No hay tests automaticos de la web: el spec no incluye un runner para `apps/web` y agregar Vitest seria una dependencia fuera del spec (CONSTRAINTS). Se probo a mano en el navegador: validacion del login, credenciales incorrectas, login correcto, redireccion sin sesion, crear y eliminar marca, aviso de Meta. Si queres tests de componentes, es una decision tuya
+- No se pudo probar con Meta real ni con cuentas sincronizadas (la lista de cuentas se vio vacia); el selector de marca por cuenta quedo sin probar en vivo
+- Al probar con la API se vio que el Redis de este equipo en el puerto 6380 pide contrasena (`NOAUTH`) y `REDIS_URL` no la trae: sin eso la API no puede encolar mails ni el worker consumir. Hay que revisar la config de Redis o agregar la contrasena a `REDIS_URL`. El `.env` de la API todavia no tiene las variables listadas abajo (se probo con valores descartables en memoria, sin tocar tus archivos)
+- Review etapa 7: nivel 2 por tocar login. Sin hallazgos de seguridad (no guarda tokens en el navegador, la cookie es httpOnly de la API)
+
 ## Pendiente de Matias
 
 - Agregar a `apps/api/.env`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN`, `TOKEN_ENC_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION`, `META_REDIRECT_URI`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (en `.env.test` solo hace falta `DATABASE_URL` para los e2e) (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
-Ultima actualizacion: etapa 6 completa, 157 tests unitarios y 135 e2e en verde
+Ultima actualizacion: etapa 7 completa (web base)

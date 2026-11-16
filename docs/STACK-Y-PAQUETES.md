@@ -110,12 +110,16 @@ API y worker comparten el codigo pero son procesos separados (DEC-010): si uno s
 | `typescript` | Chequeo de tipos (version propia de la web) |
 | `eslint`, `eslint-config-next` | Linter de la web con las reglas recomendadas de Next |
 | `@types/node`, `@types/react`, `@types/react-dom` | Tipos para TypeScript |
+| `react-hook-form` | Maneja los formularios (login, marcas): estado, errores y envio |
+| `zod` | Define las reglas de cada formulario en un solo lugar y valida lo que se escribe |
+| `@hookform/resolvers` | Conecta `zod` con `react-hook-form` |
+| `lucide-react` | Iconos de la interfaz (el mismo set que usa shadcn/ui) |
 
 ## Que viene despues (todavia NO instalado)
 
 | Paquete | Etapa | Para que |
 |---------|-------|----------|
-| `shadcn/ui`, `react-hook-form`, `date-fns-tz` | 7 a 9 | Componentes de pantalla, formularios y manejo de zonas horarias |
+| `date-fns-tz` | 8 y 9 | Manejo de zonas horarias (Tucuman) en composer y calendario |
 
 ## Archivos de configuracion que vas a ver
 

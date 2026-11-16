@@ -128,3 +128,21 @@ Conceptos nuevos:
 Donde verlo en el codigo: apps/api/src/modules/publisher/tick.service.ts (claimDue), apps/api/src/modules/publisher/publish.service.ts (classify, handleFailure), apps/api/src/modules/publisher/instagram.publisher.ts (publish)
 
 Para practicar: agregar un caso de test en `publisher.e2e-spec.ts` para "carrusel de Instagram donde la segunda imagen falla": ¿que queda guardado en `igContainerId` y que pasa en el reintento?
+
+## Etapa 7: Web base
+
+Conceptos nuevos:
+- `proxy.ts` (antes middleware): un archivo en la raiz de `apps/web` con una funcion `proxy(request)` que corre antes de cada pedido y puede redirigir. Aca solo mira si existe la cookie de sesion; es un atajo, no seguridad (la API valida de verdad).
+  Equivalente en Laravel: un middleware de ruta (`auth`) que redirige a `/login`.
+  Diferencia clave: corre antes de renderizar y no puede consultar la base; por eso solo hace chequeos baratos.
+- Server vs client components con `cacheComponents`: el layout y las `page.tsx` son server components (se arman en el servidor), y lo interactivo (formularios, listas que se recargan) va en archivos con `'use client'`. Un hook como `useSearchParams` tiene que quedar dentro de `<Suspense>` para que el resto de la pagina se pueda prerenderizar.
+  Equivalente en Laravel: Blade (servidor) + Livewire/Alpine para las partes interactivas.
+  Diferencia clave: en Next la frontera se decide por archivo y el codigo del cliente viaja al navegador.
+- Formularios con react-hook-form + zod: las reglas se escriben una vez en un esquema de zod y `zodResolver` las aplica; el formulario solo registra campos con `register`. Los errores del esquema aparecen junto a cada campo y los del servidor en un aviso aparte.
+  Equivalente en Laravel: Form Request con `rules()`.
+  Diferencia clave: aca la validacion corre en el navegador antes de enviar, y la API vuelve a validar (nunca se confia en el cliente).
+
+Donde verlo en el codigo: apps/web/proxy.ts, apps/web/app/(app)/settings/meta/page.tsx (Suspense), apps/web/app/login/login-form.tsx, apps/web/lib/validations/forms.ts
+
+Para practicar: agregar al esquema de marca la regla "los hashtags tienen que empezar con #" y ver donde aparece el mensaje de error en `BrandForm`.
+
