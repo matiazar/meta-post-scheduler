@@ -42,6 +42,12 @@ export const envSchema = z.object({
   META_GRAPH_VERSION: z.string().regex(/^v\d+\.\d+$/, 'ej. v24.0'),
   // Debe coincidir exacto con la Redirect URI cargada en la app de Meta
   META_REDIRECT_URI: z.url(),
+  // Cloudflare R2 (etapa 4). Bucket con acceso publico: IG y FB descargan la imagen por URL
+  R2_ACCOUNT_ID: z.string().min(1),
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_BUCKET: z.string().min(1),
+  R2_PUBLIC_BASE_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

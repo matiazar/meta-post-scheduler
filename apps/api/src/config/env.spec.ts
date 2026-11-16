@@ -19,6 +19,11 @@ const valid = {
   META_APP_SECRET: 'app-secret',
   META_GRAPH_VERSION: 'v24.0',
   META_REDIRECT_URI: 'http://localhost:3001/meta/callback',
+  R2_ACCOUNT_ID: 'acc',
+  R2_ACCESS_KEY_ID: 'key',
+  R2_SECRET_ACCESS_KEY: 'secret',
+  R2_BUCKET: 'bucket',
+  R2_PUBLIC_BASE_URL: 'https://media.example.com',
 };
 
 describe('parseEnv', () => {

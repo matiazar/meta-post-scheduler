@@ -77,3 +77,20 @@ Conceptos nuevos:
 Donde verlo en el codigo: apps/api/src/modules/meta/meta-graph.client.ts, apps/api/src/modules/meta/oauth-state.ts, apps/api/test/meta.e2e-spec.ts
 
 Para practicar: agregar un test en `graph-error.spec.ts` para el codigo 368 (bloqueo temporal de Meta) y decidir si es transitorio o permanente.
+
+## Etapa 4: Media
+
+Conceptos nuevos:
+- Uploads multipart con `FilesInterceptor`: Nest usa multer por debajo; el interceptor parsea el `multipart/form-data`, aplica limites (10 archivos, 20 MB) y deja los archivos en memoria como `Buffer` en `@UploadedFiles()`.
+  Equivalente en Laravel: `$request->file('files')` (UploadedFile) con reglas `max` en un Form Request.
+  Diferencia clave: en Laravel el archivo ya esta en disco temporal; aca es un Buffer en RAM y lo tuyo es decidir donde guardarlo (R2). Los limites se rechazan antes de llegar al controller.
+- Proveedor por token (`S3_CLIENT`): `StorageModule` crea el cliente de S3 con una `useFactory` y `StorageService` lo recibe con `@Inject(S3_CLIENT)`. Asi los tests le pasan un cliente falso sin tocar el codigo.
+  Equivalente en Laravel: `Storage::disk('r2')` o `app()->bind(...)` en un service provider.
+  Diferencia clave: en Nest no hay facade global; el servicio declara lo que necesita en el constructor y el modulo decide con que se arma.
+- sharp y procesamiento de imagen: `ImageProcessor` es una clase sin red ni disco (Buffer entra, Buffer sale). Valida por contenido, rota segun EXIF, recorta (CROP) o rellena (PAD) y descarta los metadatos.
+  Equivalente en Laravel: Intervention Image.
+  Diferencia clave: sharp trae su parte nativa precompilada por plataforma (`@img/sharp-win32-x64`); no hay que compilar nada al instalar.
+
+Donde verlo en el codigo: apps/api/src/modules/media/image-processor.ts, apps/api/src/modules/media/media.controller.ts, apps/api/src/modules/storage/storage.module.ts
+
+Para practicar: agregar un formato nuevo aceptado (AVIF) en `SUPPORTED`, con su caso en `image-processor.spec.ts`, y ver que pasa con `sharp` y ese formato.

@@ -27,6 +27,11 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     META_APP_SECRET: 'test-app-secret',
     META_GRAPH_VERSION: 'v24.0',
     META_REDIRECT_URI: 'http://localhost:3001/meta/callback',
+    R2_ACCOUNT_ID: 'test-account',
+    R2_ACCESS_KEY_ID: 'test-key',
+    R2_SECRET_ACCESS_KEY: 'test-secret',
+    R2_BUCKET: 'test-bucket',
+    R2_PUBLIC_BASE_URL: 'https://media.example.com',
     ...overrides,
   };
 }
