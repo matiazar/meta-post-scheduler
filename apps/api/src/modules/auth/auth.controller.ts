@@ -9,6 +9,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { CookieOptions, Response } from 'express';
+import { clientKeyFromIp } from '../../common/client-key.js';
 import { ENV } from '../../config/config.module.js';
 import type { Env } from '../../config/env.js';
 import { SESSION_COOKIE, SESSION_TTL_SECONDS } from './auth.constants.js';
@@ -45,7 +46,7 @@ export class AuthController {
     const { token, email } = await this.auth.login(
       dto.email,
       dto.password,
-      req.ip ?? 'unknown',
+      clientKeyFromIp(req.ip),
     );
     res.cookie(SESSION_COOKIE, token, {
       ...this.cookieOptions,

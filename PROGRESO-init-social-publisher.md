@@ -37,6 +37,7 @@
 - Para que /security-review corra sin remoto se creo la referencia local `refs/remotes/origin/main` (y `origin/HEAD`) apuntando al commit de la etapa 0. Al agregar el remoto real, reemplazarla
 - Review etapa 1: security-review sin hallazgos; code-review con 6 hallazgos, 4 arreglados. Quedan para el deploy (mazar-ship): configurar `trust proxy` en Express (sin eso el throttle de login usa la IP del proxy y cualquiera podria bloquear al admin) y, opcional, header `Retry-After` en el 429
 - Fix posterior (review automatico de seguridad): el intento de login se cuenta antes de esperar a bcrypt (cierra la carrera con peticiones en paralelo) y el mapa de IPs tiene tope duro de 1000 claves. Sin revisar de nuevo con los dos skills: cambio chico y acotado, cubierto por tests nuevos
+- Segundo aviso automatico de seguridad: el tope de 1000 claves permite a un atacante con muchas IPs reiniciar su contador. Decision de Matias: agrupar IPv6 por /64 (`clientKeyFromIp`) y NO agregar limite global por cuenta (permitiria bloquear el login al admin a proposito). Defensa de fondo: contrasena de 12+ caracteres y bcrypt costo 12
 - Logout solo borra la cookie: no hay revocacion de token (vence a los 7 dias)
 - Variables nuevas obligatorias: `ADMIN_PASSWORD_HASH` (generar con `npm run hash-password`), `JWT_SECRET` (32 caracteres o mas) y `WEB_ORIGIN` (origen exacto, sin barra final)
 
