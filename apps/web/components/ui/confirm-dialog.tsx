@@ -9,6 +9,8 @@ interface Props {
   description: string;
   confirmLabel: string;
   loading?: boolean;
+  /** Eliminar usa "danger" (por defecto); una accion que no destruye nada, "primary" */
+  confirmVariant?: 'danger' | 'primary';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -20,6 +22,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   loading = false,
+  confirmVariant = 'danger',
   onConfirm,
   onCancel,
 }: Props) {
@@ -47,7 +50,7 @@ export function ConfirmDialog({
         <Button variant="secondary" onClick={onCancel} disabled={loading}>
           Cancelar
         </Button>
-        <Button variant="danger" onClick={onConfirm} loading={loading}>
+        <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
           {confirmLabel}
         </Button>
       </div>

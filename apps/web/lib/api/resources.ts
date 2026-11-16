@@ -1,4 +1,4 @@
-import { api } from './client';
+import { API_URL, api } from './client';
 
 export type Network = 'FACEBOOK' | 'INSTAGRAM';
 
@@ -47,6 +47,54 @@ export interface SyncResult {
   missingPermissions: string[];
 }
 
+export type AspectRatio = 'SQUARE' | 'PORTRAIT' | 'LANDSCAPE';
+export type FitMode = 'CROP' | 'PAD';
+export type PostStatus =
+  | 'DRAFT'
+  | 'SCHEDULED'
+  | 'PUBLISHING'
+  | 'PUBLISHED'
+  | 'PARTIAL'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface MediaView {
+  id: string;
+  filename: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+  mime: string;
+  originalUrl: string;
+}
+
+/** Las fechas llegan como texto ISO 8601 en UTC. */
+export interface PostView {
+  id: string;
+  brand: { id: string; name: string; slug: string; color: string };
+  caption: string;
+  scheduledAt: string | null;
+  aspectRatio: AspectRatio;
+  fitMode: FitMode;
+  status: PostStatus;
+  media: { mediaId: string; position: number; filename: string }[];
+  targets: {
+    id: string;
+    socialAccountId: string;
+    network: Network;
+    accountName: string;
+    captionOverride: string | null;
+  }[];
+}
+
+export interface PostInput {
+  caption: string;
+  aspectRatio: AspectRatio;
+  fitMode: FitMode;
+  mediaIds: string[];
+  targets: { socialAccountId: string; captionOverride?: string }[];
+}
+
 export const authApi = {
   login: (email: string, password: string) =>
     api<{ email: string }>('/auth/login', {
@@ -78,4 +126,39 @@ export const metaApi = {
   status: () => api<MetaStatus>('/meta/status'),
   connectUrl: () => api<{ url: string }>('/meta/connect-url'),
   sync: () => api<SyncResult>('/meta/sync', { method: 'POST' }),
+};
+
+export const mediaApi = {
+  /** Sube hasta 10 imagenes juntas (campo `files`). */
+  upload: (files: File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+    return api<MediaView[]>('/media', { method: 'POST', body: form });
+  },
+  /** La imagen tal como se publicara (JPEG al vuelo). Se pide con la cookie de sesion. */
+  previewUrl: (id: string, aspectRatio: AspectRatio, fitMode: FitMode) =>
+    `${API_URL}/media/${encodeURIComponent(id)}/preview?aspectRatio=${aspectRatio}&fitMode=${fitMode}`,
+};
+
+export const postsApi = {
+  get: (id: string) => api<PostView>(`/posts/${encodeURIComponent(id)}`),
+  create: (input: PostInput & { brandId: string; scheduledAt?: string }) =>
+    api<PostView>('/posts', { method: 'POST', body: input }),
+  update: (
+    id: string,
+    input: Partial<PostInput> & { scheduledAt?: string | null },
+  ) =>
+    api<PostView>(`/posts/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: input,
+    }),
+  schedule: (id: string, scheduledAt: string) =>
+    api<PostView>(`/posts/${encodeURIComponent(id)}/schedule`, {
+      method: 'POST',
+      body: { scheduledAt },
+    }),
+  publishNow: (id: string) =>
+    api<PostView>(`/posts/${encodeURIComponent(id)}/publish-now`, {
+      method: 'POST',
+    }),
 };

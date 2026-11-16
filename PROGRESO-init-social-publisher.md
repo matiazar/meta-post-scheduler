@@ -10,7 +10,7 @@
 - [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: 1270475)
 - [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: 030cdb0)
 - [COMPLETA] Etapa 7: Web base (tokens y modo claro/oscuro, componentes propios, cliente API con cookie, proxy de sesion, login, shell con navegacion, ajustes de Meta y de marcas con cuentas; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: 333e3ad)
-- [PENDIENTE] Etapa 8: Web composer
+- [COMPLETA] Etapa 8: Web composer (dropzone con reordenar por arrastre y por botones, proporcion y CROP/PAD con vista previa real, copy base con tabs por cuenta y contador de IG, preview de feed IG y FB, fecha y hora de Tucuman, guardar borrador / programar / publicar ahora, edicion de borradores y programados; typecheck, lint y build limpios; probado en el navegador contra la API real con R2 en memoria; commit: pendiente)
 - [PENDIENTE] Etapa 9: Web calendario y detalle
 - [PENDIENTE] Etapa 10: Prueba punta a punta (manual con Matias)
 
@@ -120,9 +120,23 @@
 - Redis: el puerto 6380 lo ocupa un contenedor Valkey de otro proyecto (`meli-pimax-valkey`, con contrasena). Este proyecto usa su propio Redis 8 de WSL en el puerto 6381 (`redis-server --port 6381 --bind 127.0.0.1 --daemonize yes --save ""`; hay que volver a lanzarlo si se reinicia WSL). `REDIS_URL` termina en `/0` en `.env` y `/1` en `.env.test`. El `.env` de la API todavia no tiene las variables listadas abajo (se probo con valores descartables en memoria, sin tocar tus archivos)
 - Review etapa 7: nivel 2 por tocar login. Sin hallazgos de seguridad (no guarda tokens en el navegador, la cookie es httpOnly de la API)
 
+## Etapa 8: decisiones y notas
+
+- Rutas: `/posts/new` y `/posts/[id]` usan el mismo `Composer` (`apps/web/components/composer/`). `ComposerLoader` carga marcas, cuentas y el post; un post que no es DRAFT ni SCHEDULED muestra un aviso de "ya no se puede editar" (el detalle con intentos y reintentar es de la etapa 9). Desde el menu hay un acceso "Nuevo post" y el calendario placeholder tiene un boton
+- Sin libreria de drag and drop (no esta en el spec): arrastre nativo de HTML5 mas botones mover izquierda/derecha y un aviso `aria-live`. Tampoco se agrego Vitest: sin tests automaticos en la web
+- Paquete nuevo: `date-fns-tz` (esta en el spec; anotado en docs/STACK-Y-PAQUETES.md). La conversion Tucuman <-> UTC vive en `apps/web/lib/tz.ts`; la API sigue en UTC. Fecha y hora son dos inputs (`date` y `time`) porque `datetime-local` usaria la zona del navegador
+- Las miniaturas y la vista previa usan `GET /media/:id/preview?aspectRatio&fitMode` (JPEG al vuelo, con la cookie de sesion), asi lo que se ve cambia al elegir proporcion o modo sin esperar a guardar. Las imagenes con `next/image unoptimized` (el optimizador de Next no puede pedir con cookie)
+- Acciones: cada una guarda primero (crea un borrador o hace PATCH) y despues programa o publica. Si el guardado sale bien y el paso siguiente falla, la pantalla sigue abierta con el mensaje de la API y el post ya existe: el reintento hace PATCH sobre el mismo. En un post SCHEDULED la fecha solo se manda si cambio (la API exige que sea futura si se manda). "Publicar ahora" pide confirmacion
+- Las validaciones del cliente (marca, imagenes, cuentas, fecha futura, 2200 caracteres de IG contando emojis como 1) solo anticipan los errores de la API, que sigue siendo la que manda. Los mensajes de la API se muestran tal cual
+- Cambio en el layout de la etapa 7: `AppNav` va dentro de `<Suspense>` porque usa `usePathname()` y `/posts/[id]` es una ruta dinamica (con cacheComponents Next lo exige). Sin eso la pagina de edicion no renderiza
+- `ConfirmDialog` ahora acepta `confirmVariant` ("danger" por defecto)
+- Pruebas manuales hechas: subir 3 imagenes, reordenar por boton y por eventos de arrastre, proporcion 4:5 y modo rellenar en la vista previa, firma y hashtags de la marca, tab por cuenta con override, error de 2300 caracteres en IG, fecha pasada rechazada, programar (14:30 Tucuman = 17:30Z), editar un programado y guardar, publicar ahora con confirmacion, guardar borrador nuevo, archivo .txt y de 21 MB rechazados en el navegador, vista en 375 px sin scroll horizontal
+- No se pudo probar: subida real contra R2 (se uso un R2 en memoria que reemplaza `S3Client.send` desde un script fuera del repo), cuentas sincronizadas con Meta (las dos cuentas de prueba se insertaron a mano en la DB de desarrollo y ya se borraron), arrastre real con el mouse (el navegador de prueba solo permitio disparar los eventos), modo oscuro y lector de pantalla. Eso queda para la etapa 10 con Matias
+- Servidores de dev parados y datos de prueba borrados de la base de desarrollo
+
 ## Pendiente de Matias
 
 - Agregar a `apps/api/.env`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN`, `TOKEN_ENC_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION`, `META_REDIRECT_URI`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (en `.env.test` solo hace falta `DATABASE_URL` para los e2e) (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
-Ultima actualizacion: etapa 7 completa (web base)
+Ultima actualizacion: etapa 8 completa (web composer)

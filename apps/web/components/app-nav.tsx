@@ -3,13 +3,14 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CalendarDays, Link2, LogOut, Tags } from 'lucide-react';
+import { CalendarDays, Link2, LogOut, PenSquare, Tags } from 'lucide-react';
 import { setUnauthorizedHandler } from '@/lib/api/client';
 import { authApi } from '@/lib/api/resources';
 import { useToast } from '@/components/ui/toast';
 
 const ITEMS = [
   { href: '/', label: 'Calendario', icon: CalendarDays },
+  { href: '/posts/new', label: 'Nuevo post', icon: PenSquare },
   { href: '/settings/brands', label: 'Marcas', icon: Tags },
   { href: '/settings/meta', label: 'Meta', icon: Link2 },
 ] as const;

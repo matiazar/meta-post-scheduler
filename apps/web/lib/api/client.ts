@@ -14,7 +14,7 @@ export class ApiError extends Error {
 
 const FALLBACKS: Record<number, string> = {
   401: 'Tu sesión venció. Iniciá sesión de nuevo',
-  413: 'El archivo es demasiado grande',
+  413: 'Una de las imágenes pesa más de 20 MB. Achicala o elegí otra e intentá de nuevo',
   429: 'Demasiados intentos seguidos. Esperá unos minutos e intentá de nuevo',
   503: 'El servicio no está disponible por ahora. Probá de nuevo en unos minutos',
 };
@@ -56,12 +56,17 @@ export async function api<T>(
 ): Promise<T> {
   let response: Response;
   try {
+    // Con FormData el navegador pone solo el Content-Type (con el boundary): no se pisa
+    const isForm = body instanceof FormData;
     response = await fetch(`${API_URL}${path}`, {
       method,
       credentials: 'include',
       headers:
-        body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+        body === undefined || isForm
+          ? undefined
+          : { 'Content-Type': 'application/json' },
+      body:
+        body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(

@@ -146,3 +146,20 @@ Donde verlo en el codigo: apps/web/proxy.ts, apps/web/app/(app)/settings/meta/pa
 
 Para practicar: agregar al esquema de marca la regla "los hashtags tienen que empezar con #" y ver donde aparece el mensaje de error en `BrandForm`.
 
+
+## Etapa 8: Web composer
+
+Conceptos nuevos:
+- Estado de una pantalla grande: react-hook-form maneja solo los campos de formulario (texto, formato, fecha y hora) y `useState` guarda lo que no es un campo (lista de imagenes, cuentas marcadas, textos propios por cuenta). `useWatch` lee un campo para que la vista previa se actualice al escribir. Los pasos (guardar, programar, publicar) son una sola funcion `perform` que primero valida y despues llama a la API.
+  Equivalente en Laravel: las propiedades publicas de un componente Livewire (o `x-data` de Alpine) mas un Form Request al enviar.
+  Diferencia clave: aca no hay un servidor que re-renderice; todo el estado vive en el navegador hasta que se guarda.
+- Drag and drop nativo con alternativa de teclado: `draggable` en cada `<li>` y los eventos `dragstart`, `dragover` y `drop` alcanzan para reordenar sin libreria. Como el arrastre no funciona con teclado ni lector de pantalla, cada imagen tiene botones "mover a la izquierda/derecha" y un aviso (`aria-live`) que dice la nueva posicion. Los archivos del sistema se distinguen porque `dataTransfer.types` incluye `Files`.
+  Equivalente en Laravel: SortableJS o `wire:sortable` en Blade/Livewire.
+  Diferencia clave: la accesibilidad no viene gratis con el arrastre; los botones no son un extra, son la version accesible.
+- Fechas: la API habla en UTC (ISO 8601) y la web convierte a la hora de Tucuman con `date-fns-tz`: `fromZonedTime` pasa "fecha y hora de Tucuman" a un instante UTC, y `formatInTimeZone` hace el camino inverso para mostrar. Un `<input type="datetime-local">` no sirve porque usa la zona del navegador.
+  Equivalente en Laravel: `Carbon::parse($x, 'America/Argentina/Tucuman')->utc()`.
+  Diferencia clave: en Laravel la zona suele estar en `config/app.php`; aca la unica zona es la del usuario y se aplica solo en el borde (la web).
+
+Donde verlo en el codigo: apps/web/components/composer/composer.tsx (perform, checkAction), apps/web/components/composer/image-picker.tsx (reordenar), apps/web/lib/tz.ts
+
+Para practicar: agregar un boton "Mañana a las 10:00" en la seccion de fecha que complete los dos campos usando `isoToZoned` y `zonedToIso`.

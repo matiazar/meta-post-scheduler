@@ -114,12 +114,7 @@ API y worker comparten el codigo pero son procesos separados (DEC-010): si uno s
 | `zod` | Define las reglas de cada formulario en un solo lugar y valida lo que se escribe |
 | `@hookform/resolvers` | Conecta `zod` con `react-hook-form` |
 | `lucide-react` | Iconos de la interfaz (el mismo set que usa shadcn/ui) |
-
-## Que viene despues (todavia NO instalado)
-
-| Paquete | Etapa | Para que |
-|---------|-------|----------|
-| `date-fns-tz` | 8 y 9 | Manejo de zonas horarias (Tucuman) en composer y calendario |
+| `date-fns-tz` | Convierte fechas entre la hora de Tucuman (la que elige el usuario) y UTC (la que usa la API). Etapa 8; el calendario de la etapa 9 tambien lo usa |
 
 ## Archivos de configuracion que vas a ver
 
