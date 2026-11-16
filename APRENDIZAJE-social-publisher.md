@@ -94,3 +94,20 @@ Conceptos nuevos:
 Donde verlo en el codigo: apps/api/src/modules/media/image-processor.ts, apps/api/src/modules/media/media.controller.ts, apps/api/src/modules/storage/storage.module.ts
 
 Para practicar: agregar un formato nuevo aceptado (AVIF) en `SUPPORTED`, con su caso en `image-processor.spec.ts`, y ver que pasa con `sharp` y ese formato.
+
+## Etapa 5: Posts
+
+Conceptos nuevos:
+- DTO anidado con `@ValidateNested` + `@Type`: un post trae una lista de destinos (`targets`) y cada uno es un objeto con sus propias reglas. `@Type(() => PostTargetDto)` le dice a class-transformer en que clase convertir cada elemento; sin eso, la validacion interna no corre.
+  Equivalente en Laravel: reglas con punto en un Form Request (`targets.*.socialAccountId`).
+  Diferencia clave: en Laravel las reglas viven en un array de strings; aca son decoradores sobre clases reales, y hay que declarar la conversion de tipos.
+- Transacciones interactivas y UPDATE con guarda: `prisma.$transaction(async (tx) => ...)` agrupa varias escrituras; dentro, `updateMany({ where: { id, status: { in: [...] } } })` solo actua si el estado sigue siendo el esperado, y `count === 0` significa que alguien (el publicador) se adelanto.
+  Equivalente en Laravel: `DB::transaction(function () {...})` y `->where('status', ...)->update(...)`.
+  Diferencia clave: Prisma no tiene `lockForUpdate` en su API; esa guarda en el WHERE es la forma simple de evitar pisarse entre dos procesos.
+- Funcion pura para el estado derivado: `derivePostStatus` recibe los estados de los destinos y devuelve el del post, sin tocar la DB. Eso permite probar todos los casos con 9 tests de una linea cada uno.
+  Equivalente en Laravel: un accessor del modelo o un metodo de dominio sin dependencias.
+  Diferencia clave: en Nest no hay modelos con logica; lo que en Eloquent seria un metodo del modelo vive en una funcion o un service.
+
+Donde verlo en el codigo: apps/api/src/modules/posts/post-status.ts, apps/api/src/modules/posts/dto/post.dto.ts, apps/api/src/modules/posts/posts.service.ts (metodo update)
+
+Para practicar: agregar la regla "un post de Instagram admite como maximo 30 hashtags" (`CaptionTooLongException` hermana), con su caso en `posts.e2e-spec.ts`.

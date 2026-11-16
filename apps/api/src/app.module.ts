@@ -4,6 +4,7 @@ import { QueueModule } from './common/queue.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { BrandsModule } from './modules/brands/brands.module.js';
 import { MediaModule } from './modules/media/media.module.js';
+import { PostsModule } from './modules/posts/posts.module.js';
 import { MetaModule } from './modules/meta/meta.module.js';
 import { CryptoModule } from './modules/crypto/crypto.module.js';
 import { ErrorsModule } from './modules/errors/errors.module.js';
@@ -24,6 +25,7 @@ import { PrismaModule } from './modules/prisma/prisma.module.js';
     BrandsModule,
     MetaModule,
     MediaModule,
+    PostsModule,
   ],
 })
 export class AppModule {}

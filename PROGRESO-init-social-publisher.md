@@ -7,7 +7,7 @@
 - [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: 755002e)
 - [COMPLETA] Etapa 3: Conexion Meta (OAuth con state firmado + cookie, canje a token largo, sync de Paginas e IG, MetaGraphClient con mapeo de errores, estado de conexion; 112 tests unitarios y 45 e2e con Meta mockeado en verde; code-review y security-review corridos; commit: 5e222d8)
 - [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: 00b0f79)
-- [PENDIENTE] Etapa 5: Posts
+- [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: pendiente)
 - [PENDIENTE] Etapa 6: Publisher
 - [PENDIENTE] Etapa 7: Web base
 - [PENDIENTE] Etapa 8: Web composer
@@ -76,6 +76,19 @@
 - Verificado con R2 en memoria. Falta probar contra un bucket real (credenciales de Matias) y que Meta descargue la URL publica: queda para la etapa 10
 - Review etapa 4: security-review sin hallazgos; code-review con 1 (excepcion sin uso), arreglado
 - Aviso automatico posterior (EXIF/GPS en originales publicos): decision de Matias, opcion 1. El original se re-codifica sin metadatos al subir (`ImageProcessor.stripMetadata`: mismo formato, calidad 95 en JPEG/WebP, rotacion aplicada a los pixeles, pasa a sRGB). `sizeBytes` es el del archivo guardado. Ya no se guarda el archivo byte a byte igual al subido
+
+## Etapa 5: decisiones y notas
+
+- Rutas: `GET /posts?from=&to=[&brandId=&status=]` (rango maximo 100 dias; sin rango hace falta `status`), `GET /posts/:id`, `POST /posts` (siempre crea un BORRADOR), `PATCH /posts/:id`, `POST /posts/:id/schedule` (programa o reprograma), `/publish-now`, `/cancel`, `/retry`, `DELETE /posts/:id`
+- Fechas siempre en ISO 8601 UTC. La zona horaria se resuelve en la web (etapa 8)
+- Editable: solo DRAFT y SCHEDULED, y solo si ningun destino salio de PENDING (guarda dentro de la transaccion). La marca de un post no se cambia
+- Las imagenes procesadas (`processed/yyyy/mm/uuid.jpg`) se generan al crear o al cambiar imagenes, proporcion o modo, y se borran de R2 al regenerar o eliminar. PAD rellena siempre con blanco (el color de marca queda como mejora)
+- Reglas: 1 a 10 imagenes sin repetir, cuentas activas de la misma marca sin repetir, texto de Instagram hasta 2200 caracteres (cuenta emojis como 1; el override de la cuenta manda). Para programar hacen falta al menos una imagen, una cuenta y fecha futura
+- `PostsService.recomputeStatus(postId, tx?)` es lo que usara el publicador despues de cada cambio de un destino (DEC-07). Regla agregada: pendiente + algun publicado o fallido = PUBLISHING (no esta en el spec)
+- Cancelar revisa que no haya destinos en curso, pero no es atomico con el tick. El processor de la etapa 6 DEBE volver a leer el estado del post y no publicar si esta CANCELLED
+- Un post CANCELLED no vuelve a abrirse; hay que crear otro (se puede agregar "duplicar" despues)
+- No hay dependencias nuevas
+- Review etapa 5: security-review sin hallazgos; code-review con 2: edicion pisando un destino ya encolado (arreglado) y cancelar no atomico (saltado, ver nota del publicador)
 
 ## Pendiente de Matias
 
