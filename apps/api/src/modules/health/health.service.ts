@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { redactString } from '../../common/redact.js';
-import { MAIL_QUEUE } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PUBLISH_QUEUE } from '../publisher/publisher.constants.js';
 
 export interface HealthResult {
   status: 'ok' | 'error';
@@ -19,7 +19,7 @@ export class HealthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue(MAIL_QUEUE) private readonly queue: Queue,
+    @InjectQueue(PUBLISH_QUEUE) private readonly queue: Queue,
   ) {}
 
   async check(): Promise<HealthResult> {

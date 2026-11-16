@@ -177,6 +177,8 @@ model PostTarget {
   publishedAt     DateTime?
   /// Container padre en carrusel, el unico en imagen sola (proteccion contra doble publicacion)
   igContainerId   String?
+  /// Primer rechazo por limite diario de IG de la racha actual (tope: 24 h)
+  dailyLimitSince DateTime?
   queuedAt        DateTime?
   startedAt       DateTime?
   createdAt       DateTime         @default(now())

@@ -111,3 +111,20 @@ Conceptos nuevos:
 Donde verlo en el codigo: apps/api/src/modules/posts/post-status.ts, apps/api/src/modules/posts/dto/post.dto.ts, apps/api/src/modules/posts/posts.service.ts (metodo update)
 
 Para practicar: agregar la regla "un post de Instagram admite como maximo 30 hashtags" (`CaptionTooLongException` hermana), con su caso en `posts.e2e-spec.ts`.
+
+## Etapa 6: Publisher
+
+Conceptos nuevos:
+- Colas y workers con BullMQ: `@Processor(NOMBRE)` + `WorkerHost.process(job)` convierte una clase en el consumidor de una cola de Redis. El tick es un job repetible (`upsertJobScheduler({ every: 60000 })`) y cada publicacion es otro job (`queue.addBulk`). La API solo encola; el worker (otro proceso) ejecuta.
+  Equivalente en Laravel: Queues + `schedule:run` cada minuto; `ShouldQueue` y `dispatch()`.
+  Diferencia clave: en Laravel el scheduler es cron del sistema; aca el "cron" vive en Redis y se registra al arrancar el worker (por eso tiene que ser idempotente).
+- `SELECT ... FOR UPDATE SKIP LOCKED` con `$queryRaw`: dentro de una transaccion, cada fila vencida se bloquea para quien la toma; si dos ticks corren a la vez, el segundo se salta las filas ya bloqueadas en vez de esperar. Asi un destino nunca se encola dos veces.
+  Equivalente en Laravel: `->lockForUpdate()` (sin el `skipLocked()` que tambien existe desde Laravel 8 en MySQL 8 y Postgres).
+  Diferencia clave: Prisma no tiene API para esto; se escribe SQL a mano, con la fecha como parametro (`${now}`) para que no haya inyeccion.
+- Clasificar errores y maquina de estados: un fallo de Meta no se "lanza hacia arriba"; `PublishService` lo traduce a tres casos (permanente, pasajero, limite diario) y cada uno decide el siguiente estado del destino (FAILED, PENDING con espera, PENDING sin gastar intento). El estado del post se recalcula siempre desde sus destinos.
+  Equivalente en Laravel: `failed()` y `$tries`/`backoff()` de un Job.
+  Diferencia clave: aca los reintentos son de negocio (guardados en la DB, visibles en el calendario), no los de la cola; la cola solo entrega el job una vez.
+
+Donde verlo en el codigo: apps/api/src/modules/publisher/tick.service.ts (claimDue), apps/api/src/modules/publisher/publish.service.ts (classify, handleFailure), apps/api/src/modules/publisher/instagram.publisher.ts (publish)
+
+Para practicar: agregar un caso de test en `publisher.e2e-spec.ts` para "carrusel de Instagram donde la segunda imagen falla": ¿que queda guardado en `igContainerId` y que pasa en el reintento?

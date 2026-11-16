@@ -221,6 +221,26 @@ export class MetaService {
     return connection;
   }
 
+  /**
+   * Meta rechazo el token (codigo 190) al publicar: marca la conexion como INVALID y avisa.
+   * Si ya estaba invalida no hace nada (un solo aviso por caida).
+   */
+  async markCurrentConnectionInvalid(): Promise<void> {
+    const connection = await this.prisma.metaConnection.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
+    if (connection?.status === 'ACTIVE') await this.markInvalid(connection.id);
+  }
+
+  /** Hay una conexion con Meta activa (si no, publicar es inutil). */
+  async hasActiveConnection(): Promise<boolean> {
+    const connection = await this.prisma.metaConnection.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    });
+    return connection?.status === 'ACTIVE';
+  }
+
   private async markInvalid(id: string): Promise<void> {
     await this.prisma.metaConnection.update({
       where: { id },

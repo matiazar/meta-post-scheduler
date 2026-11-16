@@ -7,8 +7,8 @@
 - [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: 755002e)
 - [COMPLETA] Etapa 3: Conexion Meta (OAuth con state firmado + cookie, canje a token largo, sync de Paginas e IG, MetaGraphClient con mapeo de errores, estado de conexion; 112 tests unitarios y 45 e2e con Meta mockeado en verde; code-review y security-review corridos; commit: 5e222d8)
 - [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: 00b0f79)
-- [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: pendiente)
-- [PENDIENTE] Etapa 6: Publisher
+- [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: 1270475)
+- [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: pendiente)
 - [PENDIENTE] Etapa 7: Web base
 - [PENDIENTE] Etapa 8: Web composer
 - [PENDIENTE] Etapa 9: Web calendario y detalle
@@ -90,9 +90,25 @@
 - No hay dependencias nuevas
 - Review etapa 5: security-review sin hallazgos; code-review con 2: edicion pisando un destino ya encolado (arreglado) y cancelar no atomico (saltado, ver nota del publicador)
 
+## Etapa 6: decisiones y notas
+
+- Dos colas: `tick` (job repetible cada minuto, `upsertJobScheduler`, idempotente al reiniciar el worker) y `publish` (un job por destino, `jobId = {targetId}-{attempts}`, concurrencia 3). Todo vive en `apps/api/src/modules/publisher/`, solo cargado por el worker
+- `attempts` cuenta intentos fallidos consumidos. Pasajero: PENDING con espera de 1, 5 y 15 min; el 4to fallo deja FAILED. Limite diario de IG no gasta intentos: reintenta cada hora y falla a las 24 h
+- Cambio de esquema (migracion `daily_limit_since`): `PostTarget.dailyLimitSince` marca el primer rechazo por limite diario. Se limpia al publicar o fallar, asi un "Reintentar" de la UI arranca una racha nueva
+- Facebook: si no hay respuesta (timeout o red caida) al llamar a la que publica, el destino queda FAILED con "Revisá manualmente en la Página" y mail; no se reintenta porque podria duplicar. Errores con respuesta clara si se reintentan segun la tabla. Subir fotos sin publicar (carrusel) si se repite sin riesgo
+- Instagram: el container padre se guarda apenas se crea. En un reintento se consulta su `status_code`: PUBLISHED busca el post entre los ultimos 10 por texto y fecha (si no aparece queda PUBLISHED sin link y avisa por mail), FINISHED solo publica, IN_PROGRESS espera, ERROR o EXPIRED crean uno nuevo. Espera de FINISHED: cada 3 s hasta 60 s por container
+- Destino colgado: QUEUED mas de 5 min vuelve a PENDING sin gastar intento. PUBLISHING mas de 15 min: FB pasa a FAILED con aviso; IG gasta un intento y se reintenta
+- Antes de publicar el processor toma el destino con un `updateMany` que exige QUEUED y post no cancelado ni borrador: si el post se cancelo entre el tick y el worker, el destino vuelve a PENDING sin publicar
+- Sin conexion Meta activa o cuenta desactivada: FAILED directo con mensaje claro (el usuario reintenta tras reconectar). Codigo 190 de Meta marca la conexion INVALID y manda el mail de reconexion (`MetaService.markCurrentConnectionInvalid`)
+- Error inesperado dentro de un intento: se trata como pasajero y se reporta al admin. Si el job entero falla, `PublishProcessor` lo reporta y el tick rescata el destino
+- El health ahora prueba Redis con la cola `publish`
+- No hay dependencias nuevas
+- Review etapa 6: security-review sin hallazgos (sin endpoints ni inputs nuevos); code-review con 2: fallos de job sin reportar (arreglado) y una consulta de conexion por destino (saltado)
+- Falta probar con Meta real: orden de errores de IG y tiempos de procesamiento de containers (etapa 10)
+
 ## Pendiente de Matias
 
 - Agregar a `apps/api/.env`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN`, `TOKEN_ENC_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION`, `META_REDIRECT_URI`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` (en `.env.test` solo hace falta `DATABASE_URL` para los e2e) (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
-Ultima actualizacion: codigo de etapa 0 escrito, 18 tests unitarios y 2 e2e de humo en verde
+Ultima actualizacion: etapa 6 completa, 157 tests unitarios y 135 e2e en verde
