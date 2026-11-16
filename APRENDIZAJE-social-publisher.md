@@ -59,4 +59,21 @@ Conceptos nuevos:
 
 Donde verlo en el codigo: apps/api/prisma/schema.prisma, apps/api/src/modules/brands/social-accounts.service.ts, apps/api/src/modules/crypto/crypto.service.ts
 
-Para practicar: agregar un campo `website` opcional a `Brand` (schema, migracion con `npm run db:migrate`, DTOs y un caso en `test/brands.e2e-spec.ts`).
+Para practicar (etapa 2): agregar un campo `website` opcional a `Brand` (schema, migracion con `npm run db:migrate`, DTOs y un caso en `test/brands.e2e-spec.ts`).
+
+## Etapa 3: Conexion Meta
+
+Conceptos nuevos:
+- Cliente HTTP propio con `fetch`: `MetaGraphClient` es el unico lugar que habla con Meta; pone timeout (`AbortSignal.timeout`), traduce errores a una excepcion propia y nunca mete tokens en los mensajes.
+  Equivalente en Laravel: `Http::` facade o un cliente Guzzle envuelto en una clase de servicio.
+  Diferencia clave: `fetch` viene en Node, no hay paquete; y no lanza error en un 4xx/5xx, hay que mirar `response.ok` a mano.
+- OAuth con `state` firmado: el `state` lleva nonce + vencimiento + firma HMAC, y el nonce tambien va en una cookie httpOnly. El callback solo vale para el navegador que inicio la conexion (anti-CSRF).
+  Equivalente en Laravel: Socialite (`state` en sesion).
+  Diferencia clave: Socialite lo guarda en la sesion del servidor; aca no hay sesion, asi que la firma y la cookie hacen ese trabajo.
+- Mockear `fetch` y modulos de prueba: los tests reemplazan `MetaGraphClient` por un doble y arman un modulo de Nest chico en el propio test, asi nunca se sale a internet.
+  Equivalente en Laravel: `Http::fake()`.
+  Diferencia clave: se reemplaza el provider en el modulo de test (inyeccion de dependencias), no una facade global.
+
+Donde verlo en el codigo: apps/api/src/modules/meta/meta-graph.client.ts, apps/api/src/modules/meta/oauth-state.ts, apps/api/test/meta.e2e-spec.ts
+
+Para practicar: agregar un test en `graph-error.spec.ts` para el codigo 368 (bloqueo temporal de Meta) y decidir si es transitorio o permanente.

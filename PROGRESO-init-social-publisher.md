@@ -4,8 +4,8 @@
 
 - [COMPLETA] Etapa 0: Scaffold (commit: 55eee00; codigo, tests y chequeos OK; code-review corrido y 8 de 10 findings arreglados; /security-review NO corrido: falla sin remoto origin ni commits previos; verificado a mano: /health 200 con Postgres 18 y Redis 8 reales, el worker arranca sin errores; sin commit)
 - [COMPLETA] Etapa 1: Auth (login con cookie JWT httpOnly, guard global, /auth/me y logout, throttle de 5 fallos por 15 min; 53 tests unitarios y 13 e2e en verde; code-review y security-review corridos; commit: ver git log)
-- [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: ver git log)
-- [PENDIENTE] Etapa 3: Conexion Meta
+- [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: 755002e)
+- [COMPLETA] Etapa 3: Conexion Meta (OAuth con state firmado + cookie, canje a token largo, sync de Paginas e IG, MetaGraphClient con mapeo de errores, estado de conexion; 112 tests unitarios y 45 e2e con Meta mockeado en verde; code-review y security-review corridos; commit: pendiente)
 - [PENDIENTE] Etapa 4: Media
 - [PENDIENTE] Etapa 5: Posts
 - [PENDIENTE] Etapa 6: Publisher
@@ -51,9 +51,21 @@
 - Review etapa 2: security-review sin hallazgos; code-review con 1 hallazgo (carrera en el borrado de marca, P2003 -> 409), arreglado con test. Sin dependencias nuevas
 - Filtro de cuentas: `unassigned=true` pisa a `brandId` si llegan los dos (no se valida la combinacion)
 
+## Etapa 3: decisiones y notas
+
+- Variables nuevas obligatorias: `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (ej. v24.0), `META_REDIRECT_URI`
+- Rutas: `GET /meta/status`, `GET /meta/connect-url` (devuelve la URL de Facebook y setea la cookie del state), `POST /meta/sync`, `GET /meta/callback` (publica, protegida por state + cookie; redirige a `WEB_ORIGIN/settings/meta?status=ok|denied|error|permissions`)
+- Los e2e ahora corren de a un archivo (`fileParallelism: false`) porque comparten la base de test
+- Error 190 durante el sync marca la conexion INVALID y encola mail al admin; errores transitorios de Meta responden 503 (no se reportan por mail)
+- Tokens: token de usuario largo cifrado en MetaConnection; token de Pagina cifrado en la cuenta FB; la cuenta IG usa el de su Pagina (`MetaService.tokenForAccount`)
+- No se agrego ninguna dependencia nueva
+- Review etapa 3: security-review sin hallazgos; code-review con 2: error transitorio daba 500 (arreglado), y una lista vacia de Meta desactiva todas las cuentas (saltado a proposito: se recupera con otro sync)
+- Pendiente de validar con la app real de Meta (no se puede automatizar): que en modo Live con Standard Access se concedan los 6 permisos. El sync devuelve `missingPermissions` y el callback vuelve con `status=permissions` si falta alguno
+- Los subcodes de IG transitorios usan la lista del spec; confirmar contra la doc vigente de errores de IG en la etapa 6/10
+
 ## Pendiente de Matias
 
-- Agregar a `apps/api/.env` y `.env.test`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN` y `TOKEN_ENC_KEY` (sin eso la API no arranca con tu .env)
+- Agregar a `apps/api/.env`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN`, `TOKEN_ENC_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION`, `META_REDIRECT_URI` (en `.env.test` solo hace falta `DATABASE_URL` para los e2e) (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
 Ultima actualizacion: codigo de etapa 0 escrito, 18 tests unitarios y 2 e2e de humo en verde

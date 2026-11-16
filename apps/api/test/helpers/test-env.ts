@@ -23,6 +23,10 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     JWT_SECRET: TEST_JWT_SECRET,
     WEB_ORIGIN: 'http://localhost:3000',
     TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
+    META_APP_ID: '1234567890',
+    META_APP_SECRET: 'test-app-secret',
+    META_GRAPH_VERSION: 'v24.0',
+    META_REDIRECT_URI: 'http://localhost:3001/meta/callback',
     ...overrides,
   };
 }

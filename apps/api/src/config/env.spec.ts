@@ -15,6 +15,10 @@ const valid = {
   JWT_SECRET: 'j'.repeat(32),
   WEB_ORIGIN: 'http://localhost:3000',
   TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
+  META_APP_ID: '1234567890',
+  META_APP_SECRET: 'app-secret',
+  META_GRAPH_VERSION: 'v24.0',
+  META_REDIRECT_URI: 'http://localhost:3001/meta/callback',
 };
 
 describe('parseEnv', () => {
@@ -48,6 +52,12 @@ describe('parseEnv', () => {
     expect(() =>
       parseEnv({ ...valid, TOKEN_ENC_KEY: 'no es base64!' }),
     ).toThrow(/TOKEN_ENC_KEY/);
+  });
+
+  it('META_GRAPH_VERSION debe tener formato vNN.N', () => {
+    expect(() => parseEnv({ ...valid, META_GRAPH_VERSION: '24' })).toThrow(
+      /META_GRAPH_VERSION/,
+    );
   });
 
   it('WEB_ORIGIN debe ser un origen exacto, sin barra final', () => {

@@ -32,6 +32,8 @@ API en http://localhost:3001 (`GET /health`), web en http://localhost:3000.
 3. App en modo **Live** con Standard Access (sin App Review), Matias con rol admin. Meta pide URL de politica de privacidad, icono, categoria e instrucciones de borrado de datos
 4. Redirect URI: `http://localhost:3001/meta/callback` (dev) y la de produccion despues
 5. Cada IG Business/Creator vinculado a su Pagina
+6. Copiar `META_APP_ID` y `META_APP_SECRET` (Configuracion > Basica) a `apps/api/.env`. `META_REDIRECT_URI` debe ser exactamente la Redirect URI del punto 4
+7. Conectar: con sesion iniciada, `GET /meta/connect-url` devuelve la URL de Facebook (la web la abre en la etapa 7); al volver, el callback guarda la conexion y sincroniza las cuentas
 
 ## Calidad
 

@@ -36,6 +36,12 @@ export const envSchema = z.object({
         Buffer.from(v, 'base64').length === 32,
       'debe ser una clave de 32 bytes en base64',
     ),
+  // Meta (etapa 3). La app se crea a mano en developers.facebook.com (ver checklist del README)
+  META_APP_ID: z.string().min(1),
+  META_APP_SECRET: z.string().min(1),
+  META_GRAPH_VERSION: z.string().regex(/^v\d+\.\d+$/, 'ej. v24.0'),
+  // Debe coincidir exacto con la Redirect URI cargada en la app de Meta
+  META_REDIRECT_URI: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;
