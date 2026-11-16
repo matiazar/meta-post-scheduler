@@ -14,6 +14,7 @@ const valid = {
   ADMIN_PASSWORD_HASH: `$2b$12$${'a'.repeat(53)}`,
   JWT_SECRET: 'j'.repeat(32),
   WEB_ORIGIN: 'http://localhost:3000',
+  TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
 };
 
 describe('parseEnv', () => {
@@ -35,6 +36,18 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...valid, JWT_SECRET: 'corto' })).toThrow(
       /JWT_SECRET/,
     );
+  });
+
+  it('TOKEN_ENC_KEY debe ser de exactamente 32 bytes en base64', () => {
+    expect(() =>
+      parseEnv({
+        ...valid,
+        TOKEN_ENC_KEY: Buffer.alloc(16).toString('base64'),
+      }),
+    ).toThrow(/TOKEN_ENC_KEY/);
+    expect(() =>
+      parseEnv({ ...valid, TOKEN_ENC_KEY: 'no es base64!' }),
+    ).toThrow(/TOKEN_ENC_KEY/);
   });
 
   it('WEB_ORIGIN debe ser un origen exacto, sin barra final', () => {

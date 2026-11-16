@@ -27,6 +27,15 @@ export const envSchema = z.object({
       (v) => new URL(v).origin === v,
       'debe ser un origen sin barra final ni ruta',
     ),
+  // Clave AES-256 (32 bytes en base64) para cifrar los tokens de Meta en la DB (etapa 2)
+  TOKEN_ENC_KEY: z
+    .string()
+    .refine(
+      (v) =>
+        /^[A-Za-z0-9+/]+={0,2}$/.test(v) &&
+        Buffer.from(v, 'base64').length === 32,
+      'debe ser una clave de 32 bytes en base64',
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

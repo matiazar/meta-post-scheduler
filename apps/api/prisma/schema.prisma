@@ -1,4 +1,4 @@
-// Schema inicial (etapa 0). Los modelos completos llegan en la etapa 2.
+// Modelo de datos completo (spec seccion 7). Fechas en UTC.
 
 generator client {
   provider     = "prisma-client"
@@ -8,4 +8,202 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum MetaConnectionStatus {
+  ACTIVE
+  INVALID
+}
+
+enum Network {
+  FACEBOOK
+  INSTAGRAM
+}
+
+enum AspectRatio {
+  SQUARE
+  PORTRAIT
+  LANDSCAPE
+}
+
+enum FitMode {
+  CROP
+  PAD
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum TargetStatus {
+  PENDING
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+/// Conexion con Meta (una fila activa). Los tokens van cifrados (AES-256-GCM).
+model MetaConnection {
+  id                 String               @id @default(cuid())
+  fbUserId           String
+  fbUserName         String
+  userTokenEnc       String
+  userTokenExpiresAt DateTime?
+  status             MetaConnectionStatus @default(ACTIVE)
+  lastSyncedAt       DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@map("meta_connections")
+}
+
+/// Una marca por app propia (Kalendox, Envios Box, etc.)
+model Brand {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique
+  color           String          @default("#6366f1")
+  defaultHashtags String          @default("")
+  signature       String          @default("")
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  socialAccounts  SocialAccount[]
+  posts           Post[]
+
+  @@map("brands")
+}
+
+model SocialAccount {
+  id           String       @id @default(cuid())
+  brandId      String?
+  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  network      Network
+  externalId   String
+  name         String
+  username     String?
+  pictureUrl   String?
+  /// Para IG: id de la Pagina vinculada, de donde sale el token
+  pageId       String?
+  /// Solo FACEBOOK (cifrado). IG usa el token de su Pagina
+  pageTokenEnc String?
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  targets      PostTarget[]
+
+  @@unique([network, externalId])
+  @@index([brandId])
+  @@map("social_accounts")
+}
+
+/// El original subido
+model Media {
+  id               String      @id @default(cuid())
+  originalKey      String
+  originalFilename String
+  width            Int
+  height           Int
+  sizeBytes        Int
+  mime             String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  postMedia        PostMedia[]
+
+  @@map("media")
+}
+
+model Post {
+  id          String       @id @default(cuid())
+  brandId     String
+  brand       Brand        @relation(fields: [brandId], references: [id])
+  caption     String       @default("")
+  scheduledAt DateTime?
+  aspectRatio AspectRatio  @default(SQUARE)
+  fitMode     FitMode      @default(CROP)
+  status      PostStatus   @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  media       PostMedia[]
+  targets     PostTarget[]
+
+  @@index([status, scheduledAt])
+  @@index([brandId])
+  @@map("posts")
+}
+
+model PostMedia {
+  id           String   @id @default(cuid())
+  postId       String
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaId      String
+  media        Media    @relation(fields: [mediaId], references: [id])
+  /// 0..9
+  position     Int
+  processedKey String?
+  publicUrl    String?
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([postId, position])
+  @@index([mediaId])
+  @@map("post_media")
+}
+
+/// Un destino = una cuenta social
+model PostTarget {
+  id              String           @id @default(cuid())
+  postId          String
+  post            Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccountId String
+  socialAccount   SocialAccount    @relation(fields: [socialAccountId], references: [id])
+  captionOverride String?
+  status          TargetStatus     @default(PENDING)
+  attempts        Int              @default(0)
+  nextAttemptAt   DateTime?
+  lastError       String?
+  lastErrorCode   String?
+  externalPostId  String?
+  permalink       String?
+  publishedAt     DateTime?
+  /// Container padre en carrusel, el unico en imagen sola (proteccion contra doble publicacion)
+  igContainerId   String?
+  queuedAt        DateTime?
+  startedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  attemptLog      PublishAttempt[]
+
+  @@unique([postId, socialAccountId])
+  @@index([status, nextAttemptAt])
+  @@index([socialAccountId])
+  @@map("post_targets")
+}
+
+/// Log de intentos, solo agregar
+model PublishAttempt {
+  id              String     @id @default(cuid())
+  postTargetId    String
+  postTarget      PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  startedAt       DateTime
+  finishedAt      DateTime?
+  ok              Boolean    @default(false)
+  errorCode       String?
+  errorMessage    String?
+  /// Recortado y sin tokens
+  responseSnippet String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([postTargetId])
+  @@map("publish_attempts")
 }

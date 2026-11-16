@@ -4,7 +4,7 @@
 
 - [COMPLETA] Etapa 0: Scaffold (commit: 55eee00; codigo, tests y chequeos OK; code-review corrido y 8 de 10 findings arreglados; /security-review NO corrido: falla sin remoto origin ni commits previos; verificado a mano: /health 200 con Postgres 18 y Redis 8 reales, el worker arranca sin errores; sin commit)
 - [COMPLETA] Etapa 1: Auth (login con cookie JWT httpOnly, guard global, /auth/me y logout, throttle de 5 fallos por 15 min; 53 tests unitarios y 13 e2e en verde; code-review y security-review corridos; commit: ver git log)
-- [PENDIENTE] Etapa 2: Modelo + marcas
+- [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: ver git log)
 - [PENDIENTE] Etapa 3: Conexion Meta
 - [PENDIENTE] Etapa 4: Media
 - [PENDIENTE] Etapa 5: Posts
@@ -41,8 +41,19 @@
 - Logout solo borra la cookie: no hay revocacion de token (vence a los 7 dias)
 - Variables nuevas obligatorias: `ADMIN_PASSWORD_HASH` (generar con `npm run hash-password`), `JWT_SECRET` (32 caracteres o mas) y `WEB_ORIGIN` (origen exacto, sin barra final)
 
+## Etapa 2: decisiones y notas
+
+- Variable nueva obligatoria: `TOKEN_ENC_KEY` (32 bytes en base64). Generar con `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Si se cambia, los tokens ya guardados dejan de descifrarse
+- Migraciones a la base de test: `node scripts/prisma-test.mjs migrate deploy` (carga `.env.test`)
+- Los e2e con DB (`test/brands.e2e-spec.ts`) se niegan a correr si la base no termina en `_test` y vacian todas las tablas entre tests
+- `DELETE /brands/:id` responde 409 si la marca tiene posts (se desactiva en su lugar); las cuentas asignadas quedan sin marca
+- Una cuenta social solo se lista y se asigna a marcas; se crean al sincronizar con Meta (etapa 3). La respuesta usa lista blanca de campos: nunca `pageTokenEnc`
+- Review etapa 2: security-review sin hallazgos; code-review con 1 hallazgo (carrera en el borrado de marca, P2003 -> 409), arreglado con test. Sin dependencias nuevas
+- Filtro de cuentas: `unassigned=true` pisa a `brandId` si llegan los dos (no se valida la combinacion)
+
 ## Pendiente de Matias
 
+- Agregar a `apps/api/.env` y `.env.test`: `ADMIN_PASSWORD_HASH`, `JWT_SECRET`, `WEB_ORIGIN` y `TOKEN_ENC_KEY` (sin eso la API no arranca con tu .env)
 - Preguntas abiertas 2, 7 y 8 del spec (marcas, dominio R2, URL de privacidad)
 
 Ultima actualizacion: codigo de etapa 0 escrito, 18 tests unitarios y 2 e2e de humo en verde

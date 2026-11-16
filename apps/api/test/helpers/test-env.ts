@@ -22,6 +22,7 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     ADMIN_PASSWORD_HASH: TEST_HASH,
     JWT_SECRET: TEST_JWT_SECRET,
     WEB_ORIGIN: 'http://localhost:3000',
+    TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64'),
     ...overrides,
   };
 }
