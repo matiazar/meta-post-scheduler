@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Entornos: nunca commitear secretos
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Herramientas locales
+.omc/
+.claude/
+graphify-out/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Cliente Prisma generado
+apps/api/src/generated/

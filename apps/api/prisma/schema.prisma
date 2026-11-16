@@ -1,0 +1,11 @@
+// Schema inicial (etapa 0). Los modelos completos llegan en la etapa 2.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
