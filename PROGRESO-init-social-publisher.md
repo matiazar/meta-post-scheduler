@@ -2,8 +2,8 @@
 
 ## Etapas
 
-- [COMPLETA] Etapa 0: Scaffold (codigo, tests y chequeos OK; code-review corrido y 8 de 10 findings arreglados; /security-review NO corrido: falla sin remoto origin ni commits previos; verificado a mano: /health 200 con Postgres 18 y Redis 8 reales, el worker arranca sin errores; sin commit)
-- [PENDIENTE] Etapa 1: Auth
+- [COMPLETA] Etapa 0: Scaffold (commit: 55eee00; codigo, tests y chequeos OK; code-review corrido y 8 de 10 findings arreglados; /security-review NO corrido: falla sin remoto origin ni commits previos; verificado a mano: /health 200 con Postgres 18 y Redis 8 reales, el worker arranca sin errores; sin commit)
+- [COMPLETA] Etapa 1: Auth (login con cookie JWT httpOnly, guard global, /auth/me y logout, throttle de 5 fallos por 15 min; 53 tests unitarios y 13 e2e en verde; code-review y security-review corridos; commit: ver git log)
 - [PENDIENTE] Etapa 2: Modelo + marcas
 - [PENDIENTE] Etapa 3: Conexion Meta
 - [PENDIENTE] Etapa 4: Media
@@ -30,6 +30,14 @@
 - code-review (high): 10 findings. Arreglados: dev.mjs mata el arbol en Windows, throttle del reporter (se libera si falla el envio y la firma ignora el mensaje), NODE_ENV obligatorio, redact de tokens en JSON y `code=` solo en query, REDIS_URL con db invalida falla, el worker reporta uncaught/unhandled, tests nuevos de redis-connection y load-env-file
 - Saltados a proposito: `postinstall: prisma generate` rompe `npm ci --omit=dev` (se resuelve en mazar-ship, generar en el build del deploy); `/health` pinguea Redis por la cola de mail (se unifica en la etapa 6 con la cola publish)
 - /security-review: no corrio. Su plantilla usa `origin/HEAD...` y no hay remoto ni historia. Pendiente decidir como cubrirlo
+
+## Etapa 1: decisiones y notas
+
+- `bcryptjs` (JS puro) en lugar de `bcrypt` nativo: npm 12 bloquea scripts de instalacion y en Windows habria que compilar. Tambien `@nestjs/jwt` y `cookie-parser`
+- Para que /security-review corra sin remoto se creo la referencia local `refs/remotes/origin/main` (y `origin/HEAD`) apuntando al commit de la etapa 0. Al agregar el remoto real, reemplazarla
+- Review etapa 1: security-review sin hallazgos; code-review con 6 hallazgos, 4 arreglados. Quedan para el deploy (mazar-ship): configurar `trust proxy` en Express (sin eso el throttle de login usa la IP del proxy y cualquiera podria bloquear al admin) y, opcional, header `Retry-After` en el 429
+- Logout solo borra la cookie: no hay revocacion de token (vence a los 7 dias)
+- Variables nuevas obligatorias: `ADMIN_PASSWORD_HASH` (generar con `npm run hash-password`), `JWT_SECRET` (32 caracteres o mas) y `WEB_ORIGIN` (origen exacto, sin barra final)
 
 ## Pendiente de Matias
 

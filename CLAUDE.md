@@ -16,6 +16,8 @@ Monorepo npm workspaces. `apps/api`: NestJS 12 (ESM, imports con extension `.js`
 - Prisma (desde `apps/api`): `npm run db:generate`, `npm run db:migrate`
 - Entorno: copiar `apps/api/.env.example` a `.env` y `.env.test` (otra base: `social_publisher_test`)
 
+- Al instalar un paquete nuevo, agregarlo a `docs/STACK-Y-PAQUETES.md` (que es y para que se usa, en español simple)
+
 ## Convenciones
 
 - Controllers finos: DTO con class-validator, llaman al service. Logica en `@Injectable()` services que no reciben `Request`

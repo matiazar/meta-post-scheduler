@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { QueueModule } from './common/queue.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ErrorsModule } from './modules/errors/errors.module.js';
@@ -14,6 +15,7 @@ import { PrismaModule } from './modules/prisma/prisma.module.js';
     MailModule,
     ErrorsModule,
     HealthModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

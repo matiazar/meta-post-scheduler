@@ -14,6 +14,7 @@
     "test": "npm test -w apps/api",
     "build": "npm run build -w apps/api && npm run build -w apps/web",
     "dev": "node scripts/dev.mjs",
-    "lint": "npm run lint -w apps/api && npm run lint -w apps/web"
+    "lint": "npm run lint -w apps/api && npm run lint -w apps/web",
+    "hash-password": "node scripts/hash-password.mjs"
   }
 }

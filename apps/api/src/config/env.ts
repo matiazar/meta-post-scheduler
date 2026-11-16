@@ -17,6 +17,16 @@ export const envSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive(),
   SMTP_USER: z.string().min(1),
   SMTP_PASS: z.string().min(1),
+  // Auth (etapa 1): un solo admin, contrasena como hash bcrypt, sesion en JWT
+  ADMIN_PASSWORD_HASH: z.string().regex(/^\$2[aby]\$\d{2}\$.{53}$/),
+  JWT_SECRET: z.string().min(32),
+  // Origen exacto (sin barra final ni ruta): el navegador lo compara tal cual en CORS
+  WEB_ORIGIN: z
+    .url()
+    .refine(
+      (v) => new URL(v).origin === v,
+      'debe ser un origen sin barra final ni ruta',
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

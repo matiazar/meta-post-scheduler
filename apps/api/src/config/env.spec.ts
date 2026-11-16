@@ -11,6 +11,9 @@ const valid = {
   SMTP_PORT: '587',
   SMTP_USER: 'user',
   SMTP_PASS: 'secret-pass',
+  ADMIN_PASSWORD_HASH: `$2b$12$${'a'.repeat(53)}`,
+  JWT_SECRET: 'j'.repeat(32),
+  WEB_ORIGIN: 'http://localhost:3000',
 };
 
 describe('parseEnv', () => {
@@ -23,6 +26,25 @@ describe('parseEnv', () => {
   it('NODE_ENV es obligatorio', () => {
     const { NODE_ENV: _omit, ...withoutNodeEnv } = valid;
     expect(() => parseEnv(withoutNodeEnv)).toThrow(/NODE_ENV/);
+  });
+
+  it('rechaza un hash que no es bcrypt y un JWT_SECRET corto', () => {
+    expect(() =>
+      parseEnv({ ...valid, ADMIN_PASSWORD_HASH: 'plaintext' }),
+    ).toThrow(/ADMIN_PASSWORD_HASH/);
+    expect(() => parseEnv({ ...valid, JWT_SECRET: 'corto' })).toThrow(
+      /JWT_SECRET/,
+    );
+  });
+
+  it('WEB_ORIGIN debe ser un origen exacto, sin barra final', () => {
+    expect(() =>
+      parseEnv({ ...valid, WEB_ORIGIN: 'http://localhost:3000/' }),
+    ).toThrow(/WEB_ORIGIN/);
+    expect(
+      parseEnv({ ...valid, WEB_ORIGIN: 'https://panel.example.com' })
+        .WEB_ORIGIN,
+    ).toBe('https://panel.example.com');
   });
 
   it('falla nombrando las variables faltantes, sin mostrar valores', () => {
