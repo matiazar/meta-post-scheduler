@@ -172,6 +172,30 @@ describe('Media (e2e, DB de test, R2 en memoria)', () => {
       expect(row.originalKey).not.toContain('secreto');
     });
 
+    it('el original guardado no lleva EXIF (el bucket es publico)', async () => {
+      const withGps = await sharp(await image(300, 200))
+        .withExif({ IFD0: { Copyright: 'ubicacion-secreta' } })
+        .jpeg()
+        .toBuffer();
+      expect(withGps.includes(Buffer.from('ubicacion-secreta'))).toBe(true);
+      const res = await upload()
+        .attach('files', withGps, 'gps.jpg')
+        .expect(201);
+      const row = await prisma.media.findFirstOrThrow();
+      const stored = bucket.get(row.originalKey)!.body;
+      expect(stored.includes(Buffer.from('ubicacion-secreta'))).toBe(false);
+      expect((await sharp(stored).metadata()).exif).toBeUndefined();
+      expect(row.sizeBytes).toBe(stored.length);
+      expect(res.body[0].sizeBytes).toBe(stored.length);
+    });
+
+    it('un JPEG truncado (cabecera ok, datos rotos) responde 400 y no guarda nada', async () => {
+      const broken = (await image(800, 600)).subarray(0, 300);
+      await upload().attach('files', broken, 'roto.jpg').expect(400);
+      expect(bucket.size).toBe(0);
+      expect(await prisma.media.count()).toBe(0);
+    });
+
     it('sin archivos responde 400', async () => {
       await upload().expect(400);
     });

@@ -6,7 +6,7 @@
 - [COMPLETA] Etapa 1: Auth (login con cookie JWT httpOnly, guard global, /auth/me y logout, throttle de 5 fallos por 15 min; 53 tests unitarios y 13 e2e en verde; code-review y security-review corridos; commit: ver git log)
 - [COMPLETA] Etapa 2: Modelo + marcas (schema completo con migracion init_schema, CryptoService AES-256-GCM, CRUD de marcas, cuentas sociales sin exponer tokens; 81 tests unitarios y 28 e2e contra la DB de test en verde; code-review y security-review corridos; commit: 755002e)
 - [COMPLETA] Etapa 3: Conexion Meta (OAuth con state firmado + cookie, canje a token largo, sync de Paginas e IG, MetaGraphClient con mapeo de errores, estado de conexion; 112 tests unitarios y 45 e2e con Meta mockeado en verde; code-review y security-review corridos; commit: 5e222d8)
-- [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: pendiente)
+- [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: 00b0f79)
 - [PENDIENTE] Etapa 5: Posts
 - [PENDIENTE] Etapa 6: Publisher
 - [PENDIENTE] Etapa 7: Web base
@@ -75,6 +75,7 @@
 - La generacion de `PostMedia` (version procesada guardada en `processed/...`) es de la etapa 5: usara `ImageProcessor.process` y `StorageService.put`
 - Verificado con R2 en memoria. Falta probar contra un bucket real (credenciales de Matias) y que Meta descargue la URL publica: queda para la etapa 10
 - Review etapa 4: security-review sin hallazgos; code-review con 1 (excepcion sin uso), arreglado
+- Aviso automatico posterior (EXIF/GPS en originales publicos): decision de Matias, opcion 1. El original se re-codifica sin metadatos al subir (`ImageProcessor.stripMetadata`: mismo formato, calidad 95 en JPEG/WebP, rotacion aplicada a los pixeles, pasa a sRGB). `sizeBytes` es el del archivo guardado. Ya no se guarda el archivo byte a byte igual al subido
 
 ## Pendiente de Matias
 

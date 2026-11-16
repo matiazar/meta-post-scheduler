@@ -70,15 +70,18 @@ export class MediaService {
   async upload(files: UploadedFile[]): Promise<MediaView[]> {
     if (files.length === 0) throw new NoFilesException();
 
-    const checked: { file: UploadedFile; info: ImageInfo; name: string }[] = [];
+    const checked: {
+      info: ImageInfo;
+      name: string;
+      clean: Buffer;
+    }[] = [];
     for (const file of files) {
       const name = cleanFilename(file.originalname);
       try {
-        checked.push({
-          file,
-          info: await this.images.inspect(file.buffer),
-          name,
-        });
+        const info = await this.images.inspect(file.buffer);
+        // El original queda en un bucket publico: se guarda sin EXIF/GPS
+        const clean = await this.images.stripMetadata(file.buffer, info.format);
+        checked.push({ info, name, clean });
       } catch (error) {
         if (error instanceof InvalidImageError) {
           throw new UnsupportedImageException(
@@ -97,16 +100,16 @@ export class MediaService {
     const stored: string[] = [];
     try {
       const rows: Omit<Media, 'id' | 'createdAt' | 'updatedAt'>[] = [];
-      for (const { file, info, name } of checked) {
+      for (const { info, name, clean } of checked) {
         const key = `${prefix}/${randomUUID()}.${EXTENSIONS[info.format]}`;
-        await this.storage.put(key, file.buffer, MIME[info.format]);
+        await this.storage.put(key, clean, MIME[info.format]);
         stored.push(key);
         rows.push({
           originalKey: key,
           originalFilename: name,
           width: info.width,
           height: info.height,
-          sizeBytes: file.size,
+          sizeBytes: clean.length,
           mime: MIME[info.format],
         });
       }

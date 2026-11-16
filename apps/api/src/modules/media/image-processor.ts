@@ -63,6 +63,33 @@ export class ImageProcessor {
   }
 
   /**
+   * Re-codifica el original sin metadatos (GPS, camara, etc.) en el mismo formato.
+   * El original queda en un bucket publico, asi que no debe llevar datos personales.
+   * Aplica la rotacion EXIF a los pixeles (sin el tag la foto quedaria de costado) y
+   * pasa a sRGB para no perder los colores al descartar el perfil ICC.
+   */
+  async stripMetadata(input: Buffer, format: SupportedFormat): Promise<Buffer> {
+    const pipeline = sharp(input, {
+      limitInputPixels: MAX_INPUT_PIXELS,
+    })
+      .rotate()
+      .toColourspace('srgb');
+    try {
+      switch (format) {
+        case 'jpeg':
+          return await pipeline.jpeg({ quality: 95 }).toBuffer();
+        case 'png':
+          return await pipeline.png().toBuffer();
+        case 'webp':
+          return await pipeline.webp({ quality: 95 }).toBuffer();
+      }
+    } catch {
+      // Cabecera valida pero datos truncados o dañados: recien falla al decodificar
+      throw new InvalidImageError('corrupt');
+    }
+  }
+
+  /**
    * JPEG sRGB calidad 90, ancho maximo 1440, con la proporcion pedida.
    * CROP: recorte centrado. PAD: la imagen entera sobre un lienzo del color indicado.
    * Nunca agranda la imagen. Los metadatos (GPS, etc.) no se copian.

@@ -64,6 +64,52 @@ describe('ImageProcessor.inspect', () => {
   });
 });
 
+describe('ImageProcessor.stripMetadata', () => {
+  const withExif = async (format: 'jpeg' | 'png' | 'webp') =>
+    sharp(await solid(60, 30))
+      .withExif({ IFD0: { Copyright: 'secreto-gps' } })
+      [format]()
+      .toBuffer();
+
+  it.each(['jpeg', 'png', 'webp'] as const)(
+    'quita el EXIF y conserva el formato (%s)',
+    async (format) => {
+      const input = await withExif(format);
+      expect((await sharp(input).metadata()).exif).toBeDefined();
+      const out = await processor.stripMetadata(input, format);
+      const meta = await sharp(out).metadata();
+      expect(meta.format).toBe(format);
+      expect(meta.exif).toBeUndefined();
+      expect(out.includes(Buffer.from('secreto-gps'))).toBe(false);
+      expect([meta.width, meta.height]).toEqual([60, 30]);
+    },
+  );
+
+  it('aplica la orientacion a los pixeles antes de quitar el tag', async () => {
+    const input = await sharp(await solid(60, 30))
+      .withMetadata({ orientation: 6 })
+      .jpeg()
+      .toBuffer();
+    const out = await processor.stripMetadata(input, 'jpeg');
+    const meta = await sharp(out).metadata();
+    expect([meta.width, meta.height]).toEqual([30, 60]);
+    expect(meta.orientation).toBeUndefined();
+  });
+
+  it('conserva la transparencia de un PNG', async () => {
+    const input = await solid(20, 20, 'png', { r: 0, g: 0, b: 0, alpha: 0 });
+    const out = await processor.stripMetadata(input, 'png');
+    expect((await sharp(out).metadata()).hasAlpha).toBe(true);
+  });
+
+  it('un archivo truncado se informa como corrupto', async () => {
+    const input = await solid(400, 400);
+    await expect(
+      processor.stripMetadata(input.subarray(0, 200), 'jpeg'),
+    ).rejects.toMatchObject({ reason: 'corrupt' });
+  });
+});
+
 describe('ImageProcessor.process', () => {
   it.each([
     ['SQUARE', 1000, 1000],
