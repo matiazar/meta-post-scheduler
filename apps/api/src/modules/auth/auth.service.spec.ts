@@ -68,6 +68,24 @@ describe('AuthService.login', () => {
     ).rejects.toThrow(TooManyLoginAttemptsException);
   });
 
+  it('las peticiones en paralelo cuentan: no se pasa del limite de intentos', async () => {
+    const auth = setup();
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, () =>
+        auth.login(env.ADMIN_EMAIL, 'mal', 'ip'),
+      ),
+    );
+    const rejected = results.map((r) =>
+      r.status === 'rejected' ? r.reason : null,
+    );
+    expect(
+      rejected.filter((e) => e instanceof InvalidCredentialsException),
+    ).toHaveLength(5);
+    expect(
+      rejected.filter((e) => e instanceof TooManyLoginAttemptsException),
+    ).toHaveLength(7);
+  });
+
   it('un login correcto reinicia el contador de fallos', async () => {
     const auth = setup();
     for (let i = 0; i < 4; i++) {

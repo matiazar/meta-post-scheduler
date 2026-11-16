@@ -31,7 +31,8 @@ export class AuthService {
     password: string,
     clientKey: string,
   ): Promise<{ token: string; email: string }> {
-    this.throttle.assertAllowed(clientKey);
+    // Cuenta el intento antes de esperar a bcrypt: las peticiones en paralelo tambien cuentan
+    this.throttle.registerAttempt(clientKey);
 
     // Siempre se compara la contraseña, aunque el email no coincida: mismo tiempo de respuesta
     const emailOk = safeEqual(
@@ -41,7 +42,6 @@ export class AuthService {
     const passwordOk = await compare(password, this.env.ADMIN_PASSWORD_HASH);
 
     if (!emailOk || !passwordOk) {
-      this.throttle.recordFailure(clientKey);
       throw new InvalidCredentialsException();
     }
     this.throttle.reset(clientKey);
