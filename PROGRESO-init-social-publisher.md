@@ -8,7 +8,7 @@
 - [COMPLETA] Etapa 3: Conexion Meta (OAuth con state firmado + cookie, canje a token largo, sync de Paginas e IG, MetaGraphClient con mapeo de errores, estado de conexion; 112 tests unitarios y 45 e2e con Meta mockeado en verde; code-review y security-review corridos; commit: 5e222d8)
 - [COMPLETA] Etapa 4: Media (upload multipart de hasta 10 imagenes de 20 MB a R2, ImageProcessor con sharp, preview por proporcion y modo; 142 tests unitarios y 64 e2e con R2 en memoria en verde; code-review y security-review corridos; commit: 00b0f79)
 - [COMPLETA] Etapa 5: Posts (CRUD de borradores con imagenes procesadas y destinos, programar/reprogramar, publicar ahora, cancelar, reintentar, eliminar, calendario por rango y marca, estado derivado; 157 tests unitarios y 106 e2e en verde; code-review y security-review corridos; commit: 1270475)
-- [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: pendiente)
+- [COMPLETA] Etapa 6: Publisher (tick cada minuto con SKIP LOCKED, rescate de QUEUED/PUBLISHING colgados, cola `publish`, publicacion FB e IG con imagen sola y carrusel, proteccion contra doble publicacion en IG, reintentos 1/5/15 min, regla de limite diario, avisos por mail, PublishAttempt; 157 tests unitarios y 135 e2e en verde; code-review y security-review corridos; commit: 030cdb0)
 - [PENDIENTE] Etapa 7: Web base
 - [PENDIENTE] Etapa 8: Web composer
 - [PENDIENTE] Etapa 9: Web calendario y detalle
