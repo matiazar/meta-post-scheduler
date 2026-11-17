@@ -162,9 +162,22 @@ Consecuencias: el tipo de cuenta social pasa a admitir mas valores; el contador 
 Implementado (12 base + 12a Threads):
 - Contrato `NetworkPublisher` (`publisher.types.ts`): `assertConnected`, `tokenFor`, `invalidateConnection`, `publish` y `onHung` (`fail` o `retry` para un destino colgado). `PublishService` recibe la lista de redes por el token `NETWORK_PUBLISHERS` y no conoce ninguna en particular; sumar una red es una clase nueva mas una linea en `publisher.module.ts`. FB e IG comparten la conexion de Meta en `MetaNetworkPublisher`.
 - Limites de texto por red en `common/network-limits.ts` (FB sin tope, IG 2200, Threads 500 contando los emojis como bytes UTF-8); el calendario y el composer usan los mismos topes.
-- Threads: host `graph.threads.com` (verificado en la doc, no `.net`), `ThreadsGraphClient` reutiliza el fetch y el mapeo de errores de `MetaGraphClient`. Una `ThreadsConnection` por perfil (token largo cifrado, 60 dias), porque cada marca puede tener su propio perfil; la cuenta social THREADS se crea al conectar. Variables `THREADS_APP_ID/SECRET/REDIRECT_URI` opcionales y todas o ninguna.
+- Threads: host `graph.threads.com` (verificado en la doc, no `.net`), `ThreadsGraphClient` reutiliza el fetch y el mapeo de errores de `MetaGraphClient`. Una conexion por perfil (token largo cifrado, 60 dias; tabla unica desde DEC-014), porque cada marca puede tener su propio perfil; la cuenta social THREADS se crea al conectar. Variables `THREADS_APP_ID/SECRET/REDIRECT_URI` opcionales y todas o ninguna.
 - El token se renueva en el worker: `TickProcessor` revisa una vez por hora y renueva los que vencen en menos de 15 dias y tienen mas de 24 h (limite de Threads). Un 190 deja la conexion INVALID y avisa por mail una sola vez; un fallo pasajero se reintenta a la hora siguiente.
 - La columna `post_targets.igContainerId` la usan IG y Threads (proteccion contra doble publicacion con el mismo flujo de containers). No se renombro para no hacer una migracion de datos sin necesidad.
 - Sin manejo especial del limite diario de Threads (250 posts por 24 h): para un panel de un solo usuario no se alcanza; si pasara, se reintenta como error pasajero y termina FAILED con aviso.
 - La sincronizacion de Meta ya no desactiva cuentas de Threads (solo mira FB e IG).
 - La IA suma la red THREADS (texto de hasta 400 caracteres y como maximo 1 hashtag), que el composer usa solo cuando todas las cuentas elegidas son de Threads.
+
+## DEC-014: Una sola tabla de conexiones para todas las redes
+
+Fecha: 2026-11-18
+Estado: Vigente
+Origen: pedido de Matias al ver `meta_connections` y `threads_connections` (iba a haber una tabla por red: TikTok, X, Telegram)
+
+- Una tabla `social_connections` (`provider`, `externalId`, `displayName`, `tokenEnc`, `refreshTokenEnc?`, `tokenExpiresAt?`, `tokenRefreshedAt?`, `status`, `lastSyncedAt?`, `data` JSON). Unica por `(provider, externalId)`. `data` es solo para lo propio de cada red: lo que se consulta va en columna.
+- `SocialAccount.connectionId` (FK, SetNull) dice de que login sale cada cuenta; reemplaza la convencion de buscar por `externalId`.
+- `ConnectionsService` (modulo `connections`) guarda, entrega el token descifrado, invalida y renueva igual para todas las redes. Invalidar es un UPDATE condicionado a ACTIVE: con rechazos en paralelo el aviso sale una sola vez. El texto del aviso sale de `CONNECTION_INFO` por red.
+- Las redes que renuevan token registran un `ConnectionRefresher` (`refreshWhenLeftMs`, `minAgeMs`, `refresh`, `isTokenRejected`); hoy `ThreadsRefresher`. `TickProcessor` llama a `ConnectionsService.refreshDue()` una vez por hora. Meta (token que no se renueva) y Telegram (bot token que no vence) no registran ninguno.
+- Sumar una red con login propio: un valor en `ConnectionProvider`, una entrada en `CONNECTION_INFO`, su servicio de OAuth y, si renueva, su refresher. Sin tablas nuevas.
+- Migracion en dos pasos: A (`20261118120000_social_connections`) crea la tabla, copia los datos (tokens tal cual, misma `TOKEN_ENC_KEY`; de Meta solo la conexion mas reciente) y rellena `connectionId`; las tablas viejas quedan sin uso. B borra `meta_connections` y `threads_connections` y el enum viejo ya renombrado, despues de verificar A.

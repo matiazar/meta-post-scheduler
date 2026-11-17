@@ -10,7 +10,12 @@ datasource db {
   provider = "postgresql"
 }
 
-enum MetaConnectionStatus {
+enum ConnectionProvider {
+  META
+  THREADS
+}
+
+enum ConnectionStatus {
   ACTIVE
   INVALID
 }
@@ -50,33 +55,58 @@ enum TargetStatus {
   FAILED
 }
 
-/// Conexion con Meta (una fila activa). Los tokens van cifrados (AES-256-GCM).
+/// Conexion con una red (DEC-014). Una fila por login: Meta (una, da muchas cuentas) o un perfil de Threads.
+/// Los tokens van cifrados (AES-256-GCM). `data` guarda solo lo propio de cada red; nada que se consulte.
+model SocialConnection {
+  id               String             @id @default(cuid())
+  provider         ConnectionProvider
+  externalId       String
+  displayName      String
+  tokenEnc         String
+  refreshTokenEnc  String?
+  /// null = el token no vence
+  tokenExpiresAt   DateTime?
+  /// null = el token nunca se renueva (Meta)
+  tokenRefreshedAt DateTime?
+  status           ConnectionStatus   @default(ACTIVE)
+  lastSyncedAt     DateTime?
+  data             Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  accounts         SocialAccount[]
+
+  @@unique([provider, externalId])
+  @@index([provider, status, tokenExpiresAt])
+  @@map("social_connections")
+}
+
+/// DEPRECADA (DEC-014): se borra en la migracion B. Conexion con Meta (una fila activa). Los tokens van cifrados (AES-256-GCM).
 model MetaConnection {
-  id                 String               @id @default(cuid())
+  id                 String           @id @default(cuid())
   fbUserId           String
   fbUserName         String
   userTokenEnc       String
   userTokenExpiresAt DateTime?
-  status             MetaConnectionStatus @default(ACTIVE)
+  status             ConnectionStatus @default(ACTIVE)
   lastSyncedAt       DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@map("meta_connections")
 }
 
-/// Conexion con un perfil de Threads (una por perfil). Login propio, distinto al de Meta (DEC-013).
+/// DEPRECADA (DEC-014): se borra en la migracion B. Conexion con un perfil de Threads (una por perfil). Login propio, distinto al de Meta (DEC-013).
 /// El token largo dura 60 dias y se renueva solo mientras tenga mas de 24 h.
 model ThreadsConnection {
-  id               String               @id @default(cuid())
-  threadsUserId    String               @unique
+  id               String           @id @default(cuid())
+  threadsUserId    String           @unique
   username         String
   tokenEnc         String
   tokenExpiresAt   DateTime?
-  tokenRefreshedAt DateTime             @default(now())
-  status           MetaConnectionStatus @default(ACTIVE)
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  tokenRefreshedAt DateTime         @default(now())
+  status           ConnectionStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@map("threads_connections")
 }
@@ -103,9 +133,9 @@ model Brand {
 }
 
 model SocialAccount {
-  id           String       @id @default(cuid())
+  id           String            @id @default(cuid())
   brandId      String?
-  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  brand        Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
   network      Network
   externalId   String
   name         String
@@ -115,13 +145,17 @@ model SocialAccount {
   pageId       String?
   /// Solo FACEBOOK (cifrado). IG usa el token de su Pagina
   pageTokenEnc String?
-  active       Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  /// Login del que sale la cuenta (Meta para FB e IG, el perfil para Threads)
+  connectionId String?
+  connection   SocialConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   targets      PostTarget[]
 
   @@unique([network, externalId])
   @@index([brandId])
+  @@index([connectionId])
   @@map("social_accounts")
 }
 

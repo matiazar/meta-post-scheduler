@@ -29,7 +29,6 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
     prisma.media.deleteMany(),
     prisma.socialAccount.deleteMany(),
     prisma.brand.deleteMany(),
-    prisma.metaConnection.deleteMany(),
-    prisma.threadsConnection.deleteMany(),
+    prisma.socialConnection.deleteMany(),
   ]);
 }

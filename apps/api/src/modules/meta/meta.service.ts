@@ -1,17 +1,16 @@
 import {
   Inject,
   Injectable,
-  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ENV } from '../../config/config.module.js';
 import type { Env } from '../../config/env.js';
 import type {
-  MetaConnection,
   SocialAccount,
+  SocialConnection,
 } from '../../generated/prisma/client.js';
+import { ConnectionsService } from '../connections/connections.service.js';
 import { CryptoService } from '../crypto/crypto.service.js';
-import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TOKEN_INVALID_CODE } from './graph-error.js';
 import { MetaGraphClient } from './meta-graph.client.js';
@@ -64,13 +63,11 @@ export interface MetaStatus {
 
 @Injectable()
 export class MetaService {
-  private readonly logger = new Logger(MetaService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly graph: MetaGraphClient,
     private readonly crypto: CryptoService,
-    private readonly mail: MailService,
+    private readonly connections: ConnectionsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -91,9 +88,7 @@ export class MetaService {
   }
 
   async status(): Promise<MetaStatus> {
-    const connection = await this.prisma.metaConnection.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
+    const connection = await this.connections.latest('META');
     if (!connection) {
       return {
         connected: false,
@@ -106,8 +101,8 @@ export class MetaService {
     return {
       connected: connection.status === 'ACTIVE',
       status: connection.status,
-      fbUserName: connection.fbUserName,
-      tokenExpiresAt: connection.userTokenExpiresAt,
+      fbUserName: connection.displayName,
+      tokenExpiresAt: connection.tokenExpiresAt,
       lastSyncedAt: connection.lastSyncedAt,
     };
   }
@@ -142,40 +137,38 @@ export class MetaService {
       ? new Date(Date.now() + long.expires_in * 1000)
       : null;
     // Una sola conexion activa: se reemplaza la anterior
-    await this.prisma.$transaction([
-      this.prisma.metaConnection.deleteMany(),
-      this.prisma.metaConnection.create({
-        data: {
-          fbUserId: me.id,
-          fbUserName: me.name,
-          userTokenEnc: this.crypto.encrypt(long.access_token),
-          userTokenExpiresAt: expiresAt,
-        },
-      }),
-    ]);
+    await this.connections.replace({
+      provider: 'META',
+      externalId: me.id,
+      displayName: me.name,
+      token: long.access_token,
+      tokenExpiresAt: expiresAt,
+      renewable: false,
+    });
     return this.sync();
   }
 
   /** Upsert de Paginas e IG vinculadas; las que ya no aparecen quedan inactivas. */
   async sync(): Promise<SyncResult> {
     const connection = await this.activeConnection();
-    const userToken = this.crypto.decrypt(connection.userTokenEnc);
+    const userToken = this.connections.token(connection);
 
     try {
       const pages = await this.fetchAllPages(userToken);
       const missingPermissions = await this.missingPermissions(userToken);
-      const result = await this.saveAccounts(pages, missingPermissions);
-      await this.prisma.metaConnection.update({
-        where: { id: connection.id },
-        data: { lastSyncedAt: new Date() },
-      });
+      const result = await this.saveAccounts(
+        pages,
+        missingPermissions,
+        connection.id,
+      );
+      await this.connections.touchSynced(connection.id);
       return result;
     } catch (error) {
       if (
         error instanceof MetaApiException &&
         error.code === TOKEN_INVALID_CODE
       ) {
-        await this.markInvalid(connection.id);
+        await this.connections.markInvalid(connection);
         throw new MetaConnectionInvalidException();
       }
       if (error instanceof MetaApiException && error.isTransient) {
@@ -211,10 +204,8 @@ export class MetaService {
     return this.crypto.decrypt(encrypted);
   }
 
-  private async activeConnection(): Promise<MetaConnection> {
-    const connection = await this.prisma.metaConnection.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
+  private async activeConnection(): Promise<SocialConnection> {
+    const connection = await this.connections.latest('META');
     if (!connection || connection.status !== 'ACTIVE') {
       throw new MetaConnectionInvalidException();
     }
@@ -226,37 +217,14 @@ export class MetaService {
    * Si ya estaba invalida no hace nada (un solo aviso por caida).
    */
   async markCurrentConnectionInvalid(): Promise<void> {
-    const connection = await this.prisma.metaConnection.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
-    if (connection?.status === 'ACTIVE') await this.markInvalid(connection.id);
+    const connection = await this.connections.latest('META');
+    if (connection) await this.connections.markInvalid(connection);
   }
 
   /** Hay una conexion con Meta activa (si no, publicar es inutil). */
   async hasActiveConnection(): Promise<boolean> {
-    const connection = await this.prisma.metaConnection.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { status: true },
-    });
+    const connection = await this.connections.latest('META');
     return connection?.status === 'ACTIVE';
-  }
-
-  private async markInvalid(id: string): Promise<void> {
-    await this.prisma.metaConnection.update({
-      where: { id },
-      data: { status: 'INVALID' },
-    });
-    try {
-      await this.mail.notifyAdmin(
-        'Meta: hay que reconectar',
-        'El token de Meta ya no es válido. Reconectá desde Ajustes > Meta para seguir publicando.',
-      );
-    } catch (error) {
-      // El aviso es secundario: si Redis falla se deja constancia sin romper el flujo
-      this.logger.error(
-        `No se pudo encolar el aviso de token invalido: ${error instanceof Error ? error.message : 'error'}`,
-      );
-    }
   }
 
   private async fetchAllPages(token: string): Promise<PagesResponse['data']> {
@@ -294,6 +262,7 @@ export class MetaService {
   private async saveAccounts(
     pages: PagesResponse['data'],
     missingPermissions: string[],
+    connectionId: string,
   ): Promise<SyncResult> {
     let instagram = 0;
     let facebook = 0;
@@ -313,12 +282,14 @@ export class MetaService {
             pictureUrl: page.picture?.data?.url ?? null,
             pageId: page.id,
             pageTokenEnc: this.crypto.encrypt(page.access_token),
+            connectionId,
           },
           update: {
             name: page.name,
             pictureUrl: page.picture?.data?.url ?? null,
             pageId: page.id,
             pageTokenEnc: this.crypto.encrypt(page.access_token),
+            connectionId,
             active: true,
           },
           select: { id: true },
@@ -339,12 +310,14 @@ export class MetaService {
               username: ig.username ?? null,
               pictureUrl: ig.profile_picture_url ?? null,
               pageId: page.id,
+              connectionId,
             },
             update: {
               name: ig.username ?? ig.id,
               username: ig.username ?? null,
               pictureUrl: ig.profile_picture_url ?? null,
               pageId: page.id,
+              connectionId,
               active: true,
             },
             select: { id: true },

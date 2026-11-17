@@ -1,14 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '../../config/config.module.js';
 import type { Env } from '../../config/env.js';
 import type { SocialAccount } from '../../generated/prisma/client.js';
-import { CryptoService } from '../crypto/crypto.service.js';
-import { MailService } from '../mail/mail.service.js';
-import { TOKEN_INVALID_CODE } from '../meta/graph-error.js';
-import {
-  AccountWithoutTokenException,
-  MetaApiException,
-} from '../meta/meta.exceptions.js';
+import { ConnectionsService } from '../connections/connections.service.js';
+import { AccountWithoutTokenException } from '../meta/meta.exceptions.js';
 import { createOAuthState } from '../meta/oauth-state.js';
 import { ThreadsGraphClient } from '../meta/threads-graph.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -18,11 +13,6 @@ export const THREADS_SCOPES = [
   'threads_basic',
   'threads_content_publish',
 ] as const;
-
-/** Se renueva cuando faltan menos de 15 dias (el token dura 60) */
-const REFRESH_WHEN_LEFT_MS = 15 * 24 * 60 * 60_000;
-/** Threads solo deja renovar tokens con mas de 24 horas */
-const MIN_AGE_TO_REFRESH_MS = 24 * 60 * 60_000;
 
 export interface ThreadsStatusItem {
   username: string;
@@ -38,31 +28,21 @@ interface ThreadsProfile {
 
 type AccountRef = Pick<SocialAccount, 'externalId'>;
 
-function expiryFrom(
-  expiresIn: number | undefined,
-  from: Date = new Date(),
-): Date | null {
-  return expiresIn ? new Date(from.getTime() + expiresIn * 1000) : null;
-}
-
-/** Conexion con perfiles de Threads: login propio, token largo de 60 dias y renovacion. */
+/** Conexion con perfiles de Threads: login propio y token largo de 60 dias (se renueva en ThreadsRefresher). */
 @Injectable()
 export class ThreadsService {
-  private readonly logger = new Logger(ThreadsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly graph: ThreadsGraphClient,
-    private readonly crypto: CryptoService,
-    private readonly mail: MailService,
+    private readonly connections: ConnectionsService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
   get configured(): boolean {
     return Boolean(
       this.env.THREADS_APP_ID &&
-        this.env.THREADS_APP_SECRET &&
-        this.env.THREADS_REDIRECT_URI,
+      this.env.THREADS_APP_SECRET &&
+      this.env.THREADS_REDIRECT_URI,
     );
   }
 
@@ -84,11 +64,9 @@ export class ThreadsService {
   }
 
   async status(): Promise<ThreadsStatusItem[]> {
-    const connections = await this.prisma.threadsConnection.findMany({
-      orderBy: { username: 'asc' },
-    });
+    const connections = await this.connections.list('THREADS');
     return connections.map((c) => ({
-      username: c.username,
+      username: c.displayName,
       status: c.status,
       tokenExpiresAt: c.tokenExpiresAt,
     }));
@@ -121,27 +99,22 @@ export class ThreadsService {
       long.access_token,
     );
 
-    const tokenEnc = this.crypto.encrypt(long.access_token);
-    const tokenExpiresAt = expiryFrom(long.expires_in);
-    await this.prisma.$transaction([
-      this.prisma.threadsConnection.upsert({
-        where: { threadsUserId: profile.id },
-        create: {
-          threadsUserId: profile.id,
-          username: profile.username,
-          tokenEnc,
-          tokenExpiresAt,
+    await this.prisma.$transaction(async (tx) => {
+      const connection = await this.connections.save(
+        {
+          provider: 'THREADS',
+          externalId: profile.id,
+          displayName: profile.username,
+          token: long.access_token,
+          tokenExpiresAt: long.expires_in
+            ? new Date(Date.now() + long.expires_in * 1000)
+            : null,
+          renewable: true,
         },
-        update: {
-          username: profile.username,
-          tokenEnc,
-          tokenExpiresAt,
-          tokenRefreshedAt: new Date(),
-          status: 'ACTIVE',
-        },
-      }),
+        tx,
+      );
       // Si la cuenta ya estaba (reconexion), conserva su marca
-      this.prisma.socialAccount.upsert({
+      await tx.socialAccount.upsert({
         where: {
           network_externalId: { network: 'THREADS', externalId: profile.id },
         },
@@ -151,99 +124,45 @@ export class ThreadsService {
           name: profile.username,
           username: profile.username,
           pictureUrl: profile.threads_profile_picture_url ?? null,
+          connectionId: connection.id,
         },
         update: {
           name: profile.username,
           username: profile.username,
           pictureUrl: profile.threads_profile_picture_url ?? null,
+          connectionId: connection.id,
           active: true,
         },
-      }),
-    ]);
+      });
+    });
     return { username: profile.username };
   }
 
   /** Token con el que se publica en esa cuenta de Threads. */
   async tokenForAccount(account: AccountRef): Promise<string> {
-    const connection = await this.prisma.threadsConnection.findUnique({
-      where: { threadsUserId: account.externalId },
-    });
+    const connection = await this.connections.find(
+      'THREADS',
+      account.externalId,
+    );
     if (!connection) throw new AccountWithoutTokenException();
-    return this.crypto.decrypt(connection.tokenEnc);
+    return this.connections.token(connection);
   }
 
   async hasActiveConnection(account: AccountRef): Promise<boolean> {
-    const connection = await this.prisma.threadsConnection.findUnique({
-      where: { threadsUserId: account.externalId },
-      select: { status: true },
-    });
+    const connection = await this.connections.find(
+      'THREADS',
+      account.externalId,
+    );
     return connection?.status === 'ACTIVE';
   }
 
   /** Threads rechazo el token (codigo 190): marca la conexion y avisa una sola vez. */
   async markInvalid(account: AccountRef): Promise<void> {
-    const connection = await this.prisma.threadsConnection.findUnique({
-      where: { threadsUserId: account.externalId },
-    });
-    if (!connection || connection.status !== 'ACTIVE') return;
-    await this.prisma.threadsConnection.update({
-      where: { id: connection.id },
-      data: { status: 'INVALID' },
-    });
-    await this.notify(
-      `Threads: hay que reconectar @${connection.username}`,
-      `El token de Threads de @${connection.username} ya no es válido. Reconectá desde Ajustes > Threads para seguir publicando.`,
+    const connection = await this.connections.find(
+      'THREADS',
+      account.externalId,
     );
-  }
-
-  /**
-   * Renueva los tokens que vencen en menos de 15 dias. Un fallo pasajero se deja para la
-   * proxima vuelta; si Threads rechaza el token, la conexion queda INVALID y se avisa.
-   */
-  async refreshDue(now: Date = new Date()): Promise<number> {
-    const connections = await this.prisma.threadsConnection.findMany({
-      where: {
-        status: 'ACTIVE',
-        tokenExpiresAt: { lt: new Date(now.getTime() + REFRESH_WHEN_LEFT_MS) },
-        tokenRefreshedAt: {
-          lte: new Date(now.getTime() - MIN_AGE_TO_REFRESH_MS),
-        },
-      },
-    });
-    let refreshed = 0;
-    for (const connection of connections) {
-      try {
-        const res = await this.graph.get<{
-          access_token: string;
-          expires_in?: number;
-        }>('/refresh_access_token', {
-          grant_type: 'th_refresh_token',
-          access_token: this.crypto.decrypt(connection.tokenEnc),
-        });
-        await this.prisma.threadsConnection.update({
-          where: { id: connection.id },
-          data: {
-            tokenEnc: this.crypto.encrypt(res.access_token),
-            tokenExpiresAt: expiryFrom(res.expires_in, now),
-            tokenRefreshedAt: now,
-          },
-        });
-        refreshed++;
-      } catch (error) {
-        if (
-          error instanceof MetaApiException &&
-          !error.isTransient &&
-          error.code === TOKEN_INVALID_CODE
-        ) {
-          await this.markInvalid({ externalId: connection.threadsUserId });
-        } else {
-          this.logger.warn(
-            `No se pudo renovar el token de Threads de @${connection.username}: ${error instanceof Error ? error.message : 'error'}`,
-          );
-        }
-      }
-    }
-    return refreshed;
+    if (connection) await this.connections.markInvalid(connection);
   }
 
   private credentials(): {
@@ -261,16 +180,5 @@ export class ThreadsService {
       appSecret: THREADS_APP_SECRET,
       redirectUri: THREADS_REDIRECT_URI,
     };
-  }
-
-  private async notify(subject: string, text: string): Promise<void> {
-    try {
-      await this.mail.notifyAdmin(subject, text);
-    } catch (error) {
-      // El aviso es secundario: si Redis falla se deja constancia sin romper el flujo
-      this.logger.error(
-        `No se pudo encolar el aviso "${subject}": ${error instanceof Error ? error.message : 'error'}`,
-      );
-    }
   }
 }

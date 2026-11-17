@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
-import { CryptoModule } from '../crypto/crypto.module.js';
-import { MailModule } from '../mail/mail.module.js';
+import { ConnectionsModule } from '../connections/connections.module.js';
 import { MetaModule } from '../meta/meta.module.js';
 import { ThreadsController } from './threads.controller.js';
+import { ThreadsRefresher } from './threads.refresher.js';
 import { ThreadsService } from './threads.service.js';
 
 @Module({
-  imports: [CryptoModule, MailModule, MetaModule],
+  imports: [ConnectionsModule, MetaModule],
   controllers: [ThreadsController],
-  providers: [ThreadsService],
+  providers: [ThreadsService, ThreadsRefresher],
   exports: [ThreadsService],
 })
 export class ThreadsModule {}

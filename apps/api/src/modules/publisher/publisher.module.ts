@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { ConnectionsModule } from '../connections/connections.module.js';
 import { ErrorsModule } from '../errors/errors.module.js';
 import { MailModule } from '../mail/mail.module.js';
 import { MetaModule } from '../meta/meta.module.js';
@@ -19,6 +20,7 @@ import { TickService } from './tick.service.js';
 @Module({
   imports: [
     BullModule.registerQueue({ name: TICK_QUEUE }, { name: PUBLISH_QUEUE }),
+    ConnectionsModule,
     ErrorsModule,
     MailModule,
     MetaModule,

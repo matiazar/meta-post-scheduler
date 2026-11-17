@@ -73,12 +73,14 @@ Un único rol: admin. Todas las rutas de la API, salvo `POST /auth/login`, `GET 
 
 Todas las tablas con `id` (cuid), `createdAt`, `updatedAt`. Fechas en UTC.
 
-**MetaConnection** (una fila activa)
-- `fbUserId`, `fbUserName`
-- `userTokenEnc` (token de larga duración, cifrado)
-- `userTokenExpiresAt`
+**SocialConnection** (DEC-014: una fila por login con una red; reemplaza a MetaConnection y ThreadsConnection)
+- `provider`: META | THREADS; `externalId` (id del usuario en la red), único junto con `provider`
+- `displayName`
+- `tokenEnc` (token de larga duración, cifrado), `refreshTokenEnc` (opcional)
+- `tokenExpiresAt` (null = no vence), `tokenRefreshedAt` (null = nunca se renueva)
 - `status`: ACTIVE | INVALID
-- `lastSyncedAt`
+- `lastSyncedAt`, `data` (JSON solo para lo propio de cada red)
+- Meta: una sola fila vigente que da muchas cuentas (Páginas e IG); Threads: una fila por perfil
 
 **Brand** (una por app propia)
 - `name`, `slug` (único), `color` (hex, para el calendario)
@@ -192,7 +194,7 @@ Publicación en Instagram:
 - Token: el page token de la Página vinculada
 
 Mapeo de errores (en `MetaGraphClient`):
-- Permanentes (no reintenta): 190 token inválido (además marca MetaConnection INVALID y avisa "reconectar"), 10/200 permisos, 100 parámetro inválido, subcodes 2207xxx de formato o contenido de media no listados abajo
+- Permanentes (no reintenta): 190 token inválido (además marca la SocialConnection INVALID y avisa "reconectar"), 10/200 permisos, 100 parámetro inválido, subcodes 2207xxx de formato o contenido de media no listados abajo
 - Transitorios (reintenta con el backoff de DEC-07): 1, 2, 4, 17, 32, 613 (rate limit), subcodes 2207001, 2207003, 2207008, 2207027 (media no lista), 2207032, 5xx, timeout de red
 - Límite diario de IG (9 / 2207042): no consume intentos; `nextAttemptAt` = +1 h, hasta 24 h desde el primer intento, después FAILED
 - La lista exacta de subcodes se confirma contra la doc de errores de IG vigente al implementar la etapa 3

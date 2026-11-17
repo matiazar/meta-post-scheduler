@@ -14,6 +14,7 @@ import { MailService } from '../src/modules/mail/mail.service.js';
 import { MetaApiException } from '../src/modules/meta/meta.exceptions.js';
 import { MetaGraphClient } from '../src/modules/meta/meta-graph.client.js';
 import { MetaController } from '../src/modules/meta/meta.controller.js';
+import { ConnectionsService } from '../src/modules/connections/connections.service.js';
 import { MetaService } from '../src/modules/meta/meta.service.js';
 import { PrismaModule } from '../src/modules/prisma/prisma.module.js';
 import { PrismaService } from '../src/modules/prisma/prisma.service.js';
@@ -111,6 +112,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
       controllers: [MetaController],
       providers: [
         MetaService,
+        ConnectionsService,
         { provide: MetaGraphClient, useValue: fakeGraph },
       ],
       imports: [CryptoModule],
@@ -216,12 +218,12 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         `${env.WEB_ORIGIN}/settings/meta?status=ok`,
       );
 
-      const connection = await prisma.metaConnection.findFirstOrThrow();
-      expect(connection.fbUserName).toBe('Matias');
+      const connection = await prisma.socialConnection.findFirstOrThrow();
+      expect(connection.displayName).toBe('Matias');
       expect(connection.status).toBe('ACTIVE');
-      expect(connection.userTokenEnc).not.toContain('LONG-USER-TOKEN');
-      expect(crypto.decrypt(connection.userTokenEnc)).toBe('LONG-USER-TOKEN');
-      expect(connection.userTokenExpiresAt!.getTime()).toBeGreaterThan(
+      expect(connection.tokenEnc).not.toContain('LONG-USER-TOKEN');
+      expect(crypto.decrypt(connection.tokenEnc)).toBe('LONG-USER-TOKEN');
+      expect(connection.tokenExpiresAt!.getTime()).toBeGreaterThan(
         Date.now() + 59 * 24 * 3600 * 1000,
       );
       expect(await prisma.socialAccount.count()).toBe(3);
@@ -245,7 +247,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         .set('Cookie', oauthCookiePair)
         .expect(400);
       expect(calls).toHaveLength(0);
-      expect(await prisma.metaConnection.count()).toBe(0);
+      expect(await prisma.socialConnection.count()).toBe(0);
     });
 
     it('si el usuario cancela en Facebook vuelve con status=denied y no guarda nada', async () => {
@@ -257,7 +259,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         .set('Cookie', oauthCookiePair)
         .expect(302);
       expect(res.headers.location).toContain('status=denied');
-      expect(await prisma.metaConnection.count()).toBe(0);
+      expect(await prisma.socialConnection.count()).toBe(0);
     });
 
     it('si Meta falla al canjear el codigo vuelve con status=error', async () => {
@@ -270,7 +272,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         .set('Cookie', oauthCookiePair)
         .expect(302);
       expect(res.headers.location).toContain('status=error');
-      expect(await prisma.metaConnection.count()).toBe(0);
+      expect(await prisma.socialConnection.count()).toBe(0);
     });
 
     it('avisa con status=permissions si Meta no concedio todos los permisos', async () => {
@@ -297,7 +299,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
           .set('Cookie', oauthCookiePair)
           .expect(302);
       }
-      expect(await prisma.metaConnection.count()).toBe(1);
+      expect(await prisma.socialConnection.count()).toBe(1);
     });
   });
 
@@ -419,7 +421,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         );
       });
       await authed.post('/meta/sync').expect(409);
-      expect((await prisma.metaConnection.findFirstOrThrow()).status).toBe(
+      expect((await prisma.socialConnection.findFirstOrThrow()).status).toBe(
         'INVALID',
       );
       expect(notifyAdmin).toHaveBeenCalledTimes(1);
@@ -440,7 +442,7 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
         throw new MetaApiException('rate limit', 4, null, true);
       });
       await authed.post('/meta/sync').expect(503);
-      expect((await prisma.metaConnection.findFirstOrThrow()).status).toBe(
+      expect((await prisma.socialConnection.findFirstOrThrow()).status).toBe(
         'ACTIVE',
       );
       expect(notifyAdmin).not.toHaveBeenCalled();

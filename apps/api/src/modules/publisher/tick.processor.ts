@@ -3,11 +3,11 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ErrorReporterService } from '../errors/error-reporter.service.js';
 import { TICK_EVERY_MS, TICK_QUEUE } from './publisher.constants.js';
-import { ThreadsService } from '../threads/threads.service.js';
+import { ConnectionsService } from '../connections/connections.service.js';
 import { TickService } from './tick.service.js';
 
 const SCHEDULER_ID = 'publisher-tick';
-/** Cada cuanto se revisa si hay tokens de Threads por renovar (vencen a los 60 dias) */
+/** Cada cuanto se revisa si hay tokens por renovar (los de Threads vencen a los 60 dias) */
 const REFRESH_CHECK_EVERY_MS = 60 * 60_000;
 
 /** Corre el tick cada minuto (job repetible de BullMQ). Solo vive en el worker. */
@@ -21,7 +21,7 @@ export class TickProcessor
 
   constructor(
     private readonly tickService: TickService,
-    private readonly threads: ThreadsService,
+    private readonly connections: ConnectionsService,
     private readonly reporter: ErrorReporterService,
     @InjectQueue(TICK_QUEUE) private readonly queue: Queue,
   ) {
@@ -56,21 +56,21 @@ export class TickProcessor
       );
     }
     // Despues del tick: renovar tokens puede tardar (cada pedido tiene timeout) y no debe demorar publicaciones
-    await this.refreshThreadsTokens();
+    await this.refreshTokens();
   }
 
   /** Una vez por hora. Si falla no frena el tick: el publicador no depende de esto. */
-  private async refreshThreadsTokens(): Promise<void> {
+  private async refreshTokens(): Promise<void> {
     const now = Date.now();
     if (now - this.lastRefreshCheck < REFRESH_CHECK_EVERY_MS) return;
     this.lastRefreshCheck = now;
     try {
-      const refreshed = await this.threads.refreshDue();
+      const refreshed = await this.connections.refreshDue();
       if (refreshed > 0) {
-        this.logger.log(`Threads: ${refreshed} token(s) renovados`);
+        this.logger.log(`${refreshed} token(s) de conexiones renovados`);
       }
     } catch (error) {
-      await this.reporter.report(error, { source: 'threads-refresh' });
+      await this.reporter.report(error, { source: 'connections-refresh' });
     }
   }
 }

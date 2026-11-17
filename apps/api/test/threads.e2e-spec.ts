@@ -16,6 +16,8 @@ import { ThreadsGraphClient } from '../src/modules/meta/threads-graph.client.js'
 import { PrismaModule } from '../src/modules/prisma/prisma.module.js';
 import { PrismaService } from '../src/modules/prisma/prisma.service.js';
 import { ThreadsController } from '../src/modules/threads/threads.controller.js';
+import { ConnectionsService } from '../src/modules/connections/connections.service.js';
+import { ThreadsRefresher } from '../src/modules/threads/threads.refresher.js';
 import { ThreadsService } from '../src/modules/threads/threads.service.js';
 import { resetDatabase, testDatabaseUrl } from './helpers/test-db.js';
 import { makeTestEnv, TEST_PASSWORD } from './helpers/test-env.js';
@@ -28,7 +30,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let crypto: CryptoService;
-  let threads: ThreadsService;
+  let connections: ConnectionsService;
   let cookie: string;
   const env: Env = makeTestEnv({
     DATABASE_URL: testDatabaseUrl(),
@@ -96,6 +98,8 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       controllers: [ThreadsController],
       providers: [
         ThreadsService,
+        ConnectionsService,
+        ThreadsRefresher,
         { provide: ThreadsGraphClient, useValue: fakeGraph },
       ],
       imports: [CryptoModule],
@@ -117,7 +121,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     crypto = app.get(CryptoService);
-    threads = app.get(ThreadsService);
+    connections = app.get(ConnectionsService);
 
     const login = await request(app.getHttpServer())
       .post('/auth/login')
@@ -176,11 +180,11 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
 
   it('connect-url arma la URL de Threads con la app, scopes, redirect y state; cookie httpOnly', async () => {
     const { url, oauthCookie } = await startConnect();
-    expect(url.origin + url.pathname).toBe('https://threads.com/oauth/authorize');
-    expect(url.searchParams.get('client_id')).toBe('9876543210');
-    expect(url.searchParams.get('redirect_uri')).toBe(
-      env.THREADS_REDIRECT_URI,
+    expect(url.origin + url.pathname).toBe(
+      'https://threads.com/oauth/authorize',
     );
+    expect(url.searchParams.get('client_id')).toBe('9876543210');
+    expect(url.searchParams.get('redirect_uri')).toBe(env.THREADS_REDIRECT_URI);
     expect(url.searchParams.get('scope')).toBe(
       'threads_basic,threads_content_publish',
     );
@@ -200,10 +204,11 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       `${env.WEB_ORIGIN}/settings/threads?status=ok`,
     );
 
-    const connection = await prisma.threadsConnection.findFirstOrThrow();
+    const connection = await prisma.socialConnection.findFirstOrThrow();
     expect(connection).toMatchObject({
-      threadsUserId: 'th-user-1',
-      username: 'kalendox',
+      provider: 'THREADS',
+      externalId: 'th-user-1',
+      displayName: 'kalendox',
       status: 'ACTIVE',
     });
     expect(connection.tokenEnc).not.toContain('LONG-TH-TOKEN');
@@ -240,7 +245,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       where: { network: 'THREADS' },
       data: { brandId: brand.id },
     });
-    await prisma.threadsConnection.updateMany({ data: { status: 'INVALID' } });
+    await prisma.socialConnection.updateMany({ data: { status: 'INVALID' } });
     routes.set('GET /access_token', () => ({
       access_token: 'NEW-LONG-TOKEN',
       expires_in: 5_184_000,
@@ -248,14 +253,14 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
 
     await connected();
 
-    expect(await prisma.threadsConnection.count()).toBe(1);
+    expect(await prisma.socialConnection.count()).toBe(1);
     expect(await prisma.socialAccount.count()).toBe(1);
-    const connection = await prisma.threadsConnection.findFirstOrThrow();
+    const connection = await prisma.socialConnection.findFirstOrThrow();
     expect(connection.status).toBe('ACTIVE');
     expect(crypto.decrypt(connection.tokenEnc)).toBe('NEW-LONG-TOKEN');
-    expect(
-      (await prisma.socialAccount.findFirstOrThrow()).brandId,
-    ).toBe(brand.id);
+    expect((await prisma.socialAccount.findFirstOrThrow()).brandId).toBe(
+      brand.id,
+    );
   });
 
   it('rechaza un callback sin cookie, con state alterado o ajeno, sin tocar Threads', async () => {
@@ -273,7 +278,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       .set('Cookie', oauthCookiePair.replace('sp_threads_', 'sp_'))
       .expect(400);
     expect(calls).toHaveLength(0);
-    expect(await prisma.threadsConnection.count()).toBe(0);
+    expect(await prisma.socialConnection.count()).toBe(0);
   });
 
   it('si el usuario cancela vuelve con status=denied y no guarda nada', async () => {
@@ -285,7 +290,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       .set('Cookie', oauthCookiePair)
       .expect(302);
     expect(res.headers.location).toContain('status=denied');
-    expect(await prisma.threadsConnection.count()).toBe(0);
+    expect(await prisma.socialConnection.count()).toBe(0);
   });
 
   it('si Threads falla al canjear el codigo vuelve con status=error', async () => {
@@ -298,7 +303,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
       .set('Cookie', oauthCookiePair)
       .expect(302);
     expect(res.headers.location).toContain('status=error');
-    expect(await prisma.threadsConnection.count()).toBe(0);
+    expect(await prisma.socialConnection.count()).toBe(0);
   });
 
   it('status lista las conexiones sin exponer tokens', async () => {
@@ -318,7 +323,7 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
 
   describe('renovacion del token', () => {
     const makeOld = (expiresInDays: number, refreshedDaysAgo: number) =>
-      prisma.threadsConnection.updateMany({
+      prisma.socialConnection.updateMany({
         data: {
           tokenExpiresAt: new Date(Date.now() + expiresInDays * DAY),
           tokenRefreshedAt: new Date(Date.now() - refreshedDaysAgo * DAY),
@@ -333,9 +338,9 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
         expires_in: 5_184_000,
       }));
 
-      expect(await threads.refreshDue()).toBe(1);
+      expect(await connections.refreshDue()).toBe(1);
 
-      const connection = await prisma.threadsConnection.findFirstOrThrow();
+      const connection = await prisma.socialConnection.findFirstOrThrow();
       expect(crypto.decrypt(connection.tokenEnc)).toBe('REFRESHED-TOKEN');
       expect(connection.tokenExpiresAt!.getTime()).toBeGreaterThan(
         Date.now() + 59 * DAY,
@@ -350,9 +355,9 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
     it('no toca los que vencen en mas de 15 dias ni los renovados hace menos de 24 h', async () => {
       await connected();
       await makeOld(40, 20);
-      expect(await threads.refreshDue()).toBe(0);
+      expect(await connections.refreshDue()).toBe(0);
       await makeOld(10, 0);
-      expect(await threads.refreshDue()).toBe(0);
+      expect(await connections.refreshDue()).toBe(0);
       expect(calls.some((c) => c.path === '/refresh_access_token')).toBe(false);
     });
 
@@ -363,14 +368,16 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
         throw new MetaApiException('Token vencido', 190, null, false);
       });
 
-      expect(await threads.refreshDue()).toBe(0);
-      expect(await threads.refreshDue()).toBe(0);
+      expect(await connections.refreshDue()).toBe(0);
+      expect(await connections.refreshDue()).toBe(0);
 
-      expect((await prisma.threadsConnection.findFirstOrThrow()).status).toBe(
+      expect((await prisma.socialConnection.findFirstOrThrow()).status).toBe(
         'INVALID',
       );
       expect(notifyAdmin).toHaveBeenCalledTimes(1);
-      expect(notifyAdmin.mock.calls[0].join(' ')).not.toContain('LONG-TH-TOKEN');
+      expect(notifyAdmin.mock.calls[0].join(' ')).not.toContain(
+        'LONG-TH-TOKEN',
+      );
     });
 
     it('un fallo pasajero se deja para la proxima vuelta sin invalidar nada', async () => {
@@ -380,9 +387,9 @@ describe('Conexion Threads (e2e, DB de test, Threads mockeado)', () => {
         throw new MetaApiException('caido', null, null, true);
       });
 
-      expect(await threads.refreshDue()).toBe(0);
+      expect(await connections.refreshDue()).toBe(0);
 
-      expect((await prisma.threadsConnection.findFirstOrThrow()).status).toBe(
+      expect((await prisma.socialConnection.findFirstOrThrow()).status).toBe(
         'ACTIVE',
       );
       expect(notifyAdmin).not.toHaveBeenCalled();
