@@ -81,6 +81,20 @@ describe('MetaGraphClient', () => {
     expect(t.message).toContain('a tiempo');
   });
 
+  it('un fallo de conexion incluye solo el codigo de la causa, sin URL ni token', async () => {
+    const failure = new TypeError('fetch failed https://x?access_token=SECRET', {
+      cause: Object.assign(new Error('connect timeout'), {
+        code: 'UND_ERR_CONNECT_TIMEOUT',
+      }),
+    });
+    stubFetch(() => Promise.reject(failure));
+    const error = await caught(client.get('/me', {}, 'SECRET'));
+    expect(error.message).toBe(
+      'No se pudo conectar con Meta (UND_ERR_CONNECT_TIMEOUT)',
+    );
+    expect(error.isTransient).toBe(true);
+  });
+
   it('una respuesta no JSON con error HTTP igual se mapea', async () => {
     stubFetch(() => Promise.resolve(new Response('<html>', { status: 502 })));
     const error = await caught(client.get('/me'));

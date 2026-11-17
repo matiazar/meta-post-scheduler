@@ -122,3 +122,27 @@ Decision: `main.ts` (HTTP) y `worker.ts` (tick + processors), mismo codigo. `npm
 Alternativa descartada: worker dentro del proceso HTTP.
 Por que: se reinician por separado.
 Consecuencias: el processor de mail y los de publicacion solo se registran en `WorkerModule`.
+
+## DEC-011: IA para copy y hashtags como etapa 11, solo sugerencias
+
+Fecha: 2026-11-16
+Estado: Vigente
+Origen: pedido de Matias tras terminar la etapa 9
+
+Contexto: el spec dejaba la IA fuera de la v1; Matias quiere ayuda para redactar copy y hashtags.
+Decision: modulo `ai` con `AiClient` como unico acceso al modelo (igual que `MetaGraphClient` para Meta). El endpoint devuelve variantes y el composer las pone en el copy base; el usuario edita y publica. Va despues de la etapa 10, para no demorar la validacion del flujo de publicacion.
+Alternativa descartada: generar y publicar sin revision humana.
+Por que: un texto mal generado publicado solo en una Pagina real es un riesgo de marca.
+Consecuencias: nueva variable de entorno con la API key (nunca logueada, usar `redact`), tests con el modelo mockeado, dependencia nueva a registrar en STACK-Y-PAQUETES.md. Proveedor y modelo concretos se eligen al arrancar la etapa.
+
+## DEC-012: DNS con IPv4 primero en la API y el worker
+
+Fecha: 2026-11-16
+Estado: Vigente
+Origen: etapa 10 (prueba real)
+
+Contexto: en la red de desarrollo, Node intentaba IPv6 primero hacia graph.facebook.com y la conexion se colgaba 10 s (UND_ERR_CONNECT_TIMEOUT), aunque curl y el navegador andaban bien.
+Decision: `src/common/ipv4-first.ts` llama a `dns.setDefaultResultOrder('ipv4first')` y se importa primero en `main.ts` y `worker.ts`. Solo reordena: IPv6 sigue disponible si no hay IPv4.
+Alternativa descartada: `NODE_OPTIONS` en los scripts de npm (no funciona en cmd de Windows y hay que recordarlo en cada terminal).
+Por que: se aplica igual en cualquier sistema y a todas las conexiones del proceso (Meta, R2, Postgres, Redis).
+Consecuencias: si en produccion IPv6 anda bien se puede quitar sin otros cambios. El error de red de `MetaGraphClient` ahora incluye el codigo de la causa (ej. `(UND_ERR_CONNECT_TIMEOUT)`), sin URL ni token.

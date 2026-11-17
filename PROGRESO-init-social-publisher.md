@@ -13,6 +13,7 @@
 - [COMPLETA] Etapa 8: Web composer (dropzone con reordenar por arrastre y por botones, proporcion y CROP/PAD con vista previa real, copy base con tabs por cuenta y contador de IG, preview de feed IG y FB, fecha y hora de Tucuman, guardar borrador / programar / publicar ahora, edicion de borradores y programados; typecheck, lint y build limpios; probado en el navegador contra la API real con R2 en memoria; commit: 4296b8c)
 - [COMPLETA] Etapa 9: Web calendario y detalle (vista mes y semana, chips por marca y estado, filtro por marca, drag para reprogramar, Sheet de detalle con intentos, reintentar, cancelar y eliminar, borradores sin fecha; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: 923c4a4)
 - [PENDIENTE] Etapa 10: Prueba punta a punta (manual con Matias)
+- [PENDIENTE] Etapa 11: IA para copy y hashtags (sugerencias en el composer, ver DEC-011)
 
 ## Decisiones tomadas sin el usuario
 

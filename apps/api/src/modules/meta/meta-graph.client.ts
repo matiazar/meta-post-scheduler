@@ -59,10 +59,16 @@ export class MetaGraphClient {
     } catch (error) {
       // Timeout o red caida: transitorio. No se incluye el error original (puede traer la URL)
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
+      // Solo el codigo de la causa (ej. UND_ERR_CONNECT_TIMEOUT, ENOTFOUND): sirve para diagnosticar y no trae URL ni token
+      const cause = error instanceof Error ? error.cause : undefined;
+      const code =
+        cause instanceof Error && 'code' in cause && typeof cause.code === 'string'
+          ? cause.code
+          : null;
       throw new MetaApiException(
         timedOut
           ? 'Meta no respondió a tiempo'
-          : 'No se pudo conectar con Meta',
+          : `No se pudo conectar con Meta${code ? ` (${code})` : ''}`,
         null,
         null,
         true,

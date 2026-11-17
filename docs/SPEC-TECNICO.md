@@ -26,7 +26,7 @@ No es un SaaS: no hay registro, ni multi-tenant, ni cobros. La app de Meta va en
 
 - Video, Reels, Stories (ver supuesto S1)
 - TikTok, X, LinkedIn u otras redes
-- Generación de copy o imágenes con IA
+- Generación de imágenes con IA (el copy y hashtags con IA entran como etapa 11, ver DEC-011)
 - Métricas/analytics de los posts
 - Multi-usuario, roles, multi-tenant, cobros
 - App Review de Meta (no hace falta para uso propio con Standard Access)
@@ -362,6 +362,7 @@ Prohibido para llegar a verde: lo de la plantilla de mazar (`eslint-disable`, `@
 | 8 | Web: composer | Dropzone, reordenar, modo crop/pad, copy + tabs por red, contador, preview IG/FB, fecha/hora, acciones | 4, 5, 7 |
 | 9 | Web: calendario y detalle | Vista mes/semana, chips por marca/estado, drag para reprogramar, filtro, Sheet de detalle con intentos y reintentar | 5, 6, 8 |
 | 10 | Prueba punta a punta | Publicación real en una Página y un IG (manual, con Matias), verificar visibilidad desde una cuenta sin rol en la app, ajustes | 6, 9 |
+| 11 | IA para copy y hashtags | Modulo `ai` (`AiClient` unico acceso al modelo, `POST /ai/suggest-copy`: marca + idea corta + red -> 2 o 3 variantes de copy con hashtags, usando hashtags y firma de la marca como contexto). Boton "Sugerir con IA" en el composer que solo rellena el copy base (nunca publica). Key en `.env`, tests con el modelo mockeado, limite de uso por minuto | 8, 10 |
 
 Después: mazar-ship para el deploy al VPS (Docker Compose o PM2 + Nginx, HTTPS, redirect URI de producción).
 
