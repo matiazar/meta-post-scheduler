@@ -80,37 +80,6 @@ model SocialConnection {
   @@map("social_connections")
 }
 
-/// DEPRECADA (DEC-014): se borra en la migracion B. Conexion con Meta (una fila activa). Los tokens van cifrados (AES-256-GCM).
-model MetaConnection {
-  id                 String           @id @default(cuid())
-  fbUserId           String
-  fbUserName         String
-  userTokenEnc       String
-  userTokenExpiresAt DateTime?
-  status             ConnectionStatus @default(ACTIVE)
-  lastSyncedAt       DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-
-  @@map("meta_connections")
-}
-
-/// DEPRECADA (DEC-014): se borra en la migracion B. Conexion con un perfil de Threads (una por perfil). Login propio, distinto al de Meta (DEC-013).
-/// El token largo dura 60 dias y se renueva solo mientras tenga mas de 24 h.
-model ThreadsConnection {
-  id               String           @id @default(cuid())
-  threadsUserId    String           @unique
-  username         String
-  tokenEnc         String
-  tokenExpiresAt   DateTime?
-  tokenRefreshedAt DateTime         @default(now())
-  status           ConnectionStatus @default(ACTIVE)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-
-  @@map("threads_connections")
-}
-
 /// Una marca por app propia (Kalendox, Envios Box, etc.)
 model Brand {
   id              String          @id @default(cuid())
