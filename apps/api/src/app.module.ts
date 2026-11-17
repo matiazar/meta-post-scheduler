@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiModule } from './modules/ai/ai.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { QueueModule } from './common/queue.module.js';
 import { ConfigModule } from './config/config.module.js';
@@ -26,6 +27,7 @@ import { PrismaModule } from './modules/prisma/prisma.module.js';
     MetaModule,
     MediaModule,
     PostsModule,
+    AiModule,
   ],
 })
 export class AppModule {}

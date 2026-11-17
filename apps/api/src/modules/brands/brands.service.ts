@@ -37,6 +37,8 @@ export class BrandsService {
           color: dto.color,
           defaultHashtags: dto.defaultHashtags,
           signature: dto.signature,
+          description: dto.description,
+          tone: dto.tone,
           active: dto.active,
         },
       });

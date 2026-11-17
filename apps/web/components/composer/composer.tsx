@@ -18,6 +18,7 @@ import { Field, Input, Select, describedBy } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
 import {
   postsApi,
+  type AiNetwork,
   type Brand,
   type PostInput,
   type PostStatus,
@@ -32,6 +33,7 @@ import {
   countChars,
   type ComposerValues,
 } from '@/lib/validations/forms';
+import { AiSuggest } from './ai-suggest';
 import { CaptionEditor, type CaptionTab } from './caption-editor';
 import { ChoiceCard } from './choice-card';
 import { FeedPreview } from './feed-preview';
@@ -134,6 +136,11 @@ export function Composer({ brands, accounts, post }: Props) {
     label: `${NETWORK_LABEL[a.network]} · ${a.name}`,
     network: a.network,
   }));
+  // Para que red escribe la IA: ambas si hay una cuenta de cada una; si no, la que haya (Instagram si no hay)
+  const hasFacebook = chosen.some((a) => a.network === 'FACEBOOK');
+  const hasInstagram = chosen.some((a) => a.network === 'INSTAGRAM');
+  const aiNetwork: AiNetwork =
+    hasFacebook && hasInstagram ? 'BOTH' : hasFacebook ? 'FACEBOOK' : 'INSTAGRAM';
   const suggestion =
     brand && (brand.signature.trim() || brand.defaultHashtags.trim())
       ? [brand.signature.trim(), brand.defaultHashtags.trim()]
@@ -423,6 +430,19 @@ export function Composer({ brands, accounts, post }: Props) {
           title="3. Texto"
           hint="El texto base va a todas las cuentas. Podés poner uno propio para cada una."
         >
+          <AiSuggest
+            key={brandId}
+            brandId={brandId}
+            mediaIds={items.map((item) => item.mediaId)}
+            network={aiNetwork}
+            brandHasContext={Boolean(
+              brand?.description.trim() || brand?.tone.trim(),
+            )}
+            caption={caption}
+            onApply={(text) =>
+              setValue('caption', text, { shouldValidate: true })
+            }
+          />
           <CaptionEditor
             caption={caption}
             onCaptionChange={(value) =>

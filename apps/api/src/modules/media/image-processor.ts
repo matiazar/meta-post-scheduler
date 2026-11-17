@@ -5,6 +5,8 @@ import type { AspectRatio, FitMode } from '../../generated/prisma/client.js';
 export const MAX_WIDTH = 1440;
 const MAX_INPUT_PIXELS = 100_000_000;
 const JPEG_QUALITY = 90;
+/** Lado mayor de las imagenes que se mandan a la IA (mas grande no mejora la lectura y cuesta mas) */
+export const AI_MAX_SIDE = 1568;
 
 /** Proporcion ancho/alto de cada opcion del post (IG acepta de 4:5 a 1.91:1) */
 export const RATIOS: Record<AspectRatio, number> = {
@@ -85,6 +87,24 @@ export class ImageProcessor {
       }
     } catch {
       // Cabecera valida pero datos truncados o dañados: recien falla al decodificar
+      throw new InvalidImageError('corrupt');
+    }
+  }
+
+  /**
+   * Version liviana para analizar con IA: JPEG sRGB, lado mayor <= maxSide, sin agrandar.
+   * No se publica ni se guarda: solo reduce lo que se manda al modelo.
+   */
+  async shrink(input: Buffer, maxSide = AI_MAX_SIDE): Promise<Buffer> {
+    try {
+      return await sharp(input, { limitInputPixels: MAX_INPUT_PIXELS })
+        .rotate()
+        .resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
+        .flatten({ background: '#ffffff' })
+        .toColourspace('srgb')
+        .jpeg({ quality: 85 })
+        .toBuffer();
+    } catch {
       throw new InvalidImageError('corrupt');
     }
   }

@@ -72,6 +72,7 @@ API y worker comparten el codigo pero son procesos separados (DEC-010): si uno s
 | `nodemailer` | Envia mails por SMTP (avisos y reporte de errores) |
 | `sharp` | Procesa imagenes: corrige la rotacion, recorta o rellena a la proporcion elegida (1:1, 4:5, 1.91:1) y genera el JPEG. Trae su parte nativa ya compilada (no se compila al instalar) |
 | `@aws-sdk/client-s3` | Sube y baja imagenes de Cloudflare R2, que habla el mismo protocolo que S3 de Amazon |
+| `@anthropic-ai/sdk` | Cliente oficial de Anthropic para hablar con Claude. Se usa para que la IA mire las imagenes del post y proponga textos con hashtags (etapa 11). Necesita `ANTHROPIC_API_KEY`; sin ella la app funciona igual, solo se apaga el boton de IA |
 | `bcryptjs` | Compara la contrasena que se escribe en el login contra el hash guardado en `ADMIN_PASSWORD_HASH`. Es la version en JavaScript puro de bcrypt (no necesita compilar nada) |
 | `@nestjs/jwt` | Crea y verifica el token de sesion (JWT) que viaja en la cookie |
 | `cookie-parser` | Hace que Express lea las cookies del pedido (`req.cookies`) para encontrar la sesion |

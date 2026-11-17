@@ -32,6 +32,8 @@ export function makeTestEnv(overrides: Partial<Env> = {}): Env {
     R2_SECRET_ACCESS_KEY: 'test-secret',
     R2_BUCKET: 'test-bucket',
     R2_PUBLIC_BASE_URL: 'https://media.example.com',
+    // Sin ANTHROPIC_API_KEY: los e2e nunca llaman al modelo
+    AI_MODEL: 'claude-sonnet-5-5',
     ...overrides,
   };
 }

@@ -106,6 +106,37 @@ describe('Marcas y cuentas sociales (e2e, DB de test)', () => {
       });
     });
 
+    it('guarda y actualiza descripcion y tono para la IA; vienen vacios por defecto', async () => {
+      const created = await api()
+        .post('/brands')
+        .send({ name: 'Con IA', description: 'Turnos para yoga', tone: 'cercano' })
+        .expect(201);
+      expect(created.body).toMatchObject({
+        description: 'Turnos para yoga',
+        tone: 'cercano',
+      });
+      const plain = await api().post('/brands').send({ name: 'Sin IA' }).expect(201);
+      expect(plain.body).toMatchObject({ description: '', tone: '' });
+
+      const updated = await api()
+        .patch(`/brands/${created.body.id}`)
+        .send({ tone: 'formal' })
+        .expect(200);
+      expect(updated.body).toMatchObject({
+        description: 'Turnos para yoga',
+        tone: 'formal',
+      });
+
+      await api()
+        .patch(`/brands/${created.body.id}`)
+        .send({ description: 'x'.repeat(1001) })
+        .expect(400);
+      await api()
+        .patch(`/brands/${created.body.id}`)
+        .send({ tone: 'x'.repeat(201) })
+        .expect(400);
+    });
+
     it('usa el slug indicado y rechaza uno repetido con 409', async () => {
       await api()
         .post('/brands')

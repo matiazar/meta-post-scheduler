@@ -9,6 +9,10 @@ export interface Brand {
   color: string;
   defaultHashtags: string;
   signature: string;
+  /** Que es la marca y a quien le habla: contexto para la IA */
+  description: string;
+  /** Tono de voz: contexto para la IA */
+  tone: string;
   active: boolean;
 }
 
@@ -18,6 +22,8 @@ export interface BrandInput {
   color?: string;
   defaultHashtags?: string;
   signature?: string;
+  description?: string;
+  tone?: string;
   active?: boolean;
 }
 
@@ -150,6 +156,29 @@ export const accountsApi = {
     api<SocialAccount>(`/social-accounts/${id}`, {
       method: 'PATCH',
       body: { brandId },
+    }),
+};
+
+export type AiNetwork = 'INSTAGRAM' | 'FACEBOOK' | 'BOTH';
+
+export interface AiVariant {
+  /** Texto del post, sin hashtags ni firma */
+  text: string;
+  /** Sin el simbolo # */
+  hashtags: string[];
+}
+
+export const aiApi = {
+  /** La IA mira las imagenes y propone 3 textos con hashtags. No guarda ni publica nada. */
+  suggestCopy: (input: {
+    brandId: string;
+    mediaIds: string[];
+    network: AiNetwork;
+    hint?: string;
+  }) =>
+    api<{ variants: AiVariant[] }>('/ai/suggest-copy', {
+      method: 'POST',
+      body: input,
     }),
 };
 

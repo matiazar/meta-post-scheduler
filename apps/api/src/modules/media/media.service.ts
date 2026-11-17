@@ -128,6 +128,26 @@ export class MediaService {
     return this.toView(await this.findOrThrow(id));
   }
 
+  /**
+   * Las imagenes pedidas, en el mismo orden, reducidas para analizarlas con IA.
+   * Si alguna no existe falla todo: la IA no debe escribir sobre imagenes que faltan.
+   */
+  async readForAnalysis(ids: string[]): Promise<Buffer[]> {
+    const rows = await this.prisma.media.findMany({
+      where: { id: { in: ids } },
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const ordered = ids.map((id) => byId.get(id));
+    const found = ordered.filter((row): row is Media => row !== undefined);
+    if (found.length !== ids.length) throw new MediaNotFoundException();
+    const out: Buffer[] = [];
+    for (const media of found) {
+      const original = await this.storage.get(media.originalKey);
+      out.push(await this.images.shrink(original));
+    }
+    return out;
+  }
+
   /** Imagen ya procesada (misma salida que se publicara), sin guardarla. */
   async preview(
     id: string,

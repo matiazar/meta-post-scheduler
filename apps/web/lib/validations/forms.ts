@@ -24,6 +24,8 @@ export const brandSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Elegí un color válido'),
   defaultHashtags: z.string().max(500, 'Máximo 500 caracteres'),
   signature: z.string().max(500, 'Máximo 500 caracteres'),
+  description: z.string().max(1000, 'Máximo 1000 caracteres'),
+  tone: z.string().max(200, 'Máximo 200 caracteres'),
   active: z.boolean(),
 });
 export type BrandValues = z.infer<typeof brandSchema>;

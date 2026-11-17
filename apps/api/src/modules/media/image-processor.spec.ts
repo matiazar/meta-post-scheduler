@@ -231,3 +231,33 @@ describe('ImageProcessor.process', () => {
     ).rejects.toBeInstanceOf(InvalidImageError);
   });
 });
+
+describe('ImageProcessor.shrink', () => {
+  it('reduce el lado mayor a 1568 conservando la proporcion y devuelve JPEG', async () => {
+    const out = await processor.shrink(await solid(3136, 1568, 'png'));
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe('jpeg');
+    expect(meta.width).toBe(1568);
+    expect(meta.height).toBe(784);
+  });
+
+  it('no agranda una imagen chica', async () => {
+    const meta = await sharp(
+      await processor.shrink(await solid(300, 200)),
+    ).metadata();
+    expect([meta.width, meta.height]).toEqual([300, 200]);
+  });
+
+  it('una PNG con transparencia sale con fondo opaco y sin metadatos', async () => {
+    const png = await solid(40, 40, 'png', { r: 0, g: 0, b: 0, alpha: 0 });
+    const out = await processor.shrink(png);
+    expect(await centerPixel(out)).toEqual([255, 255, 255]);
+    expect((await sharp(out).metadata()).exif).toBeUndefined();
+  });
+
+  it('rechaza una imagen invalida', async () => {
+    await expect(processor.shrink(Buffer.from('nope'))).rejects.toBeInstanceOf(
+      InvalidImageError,
+    );
+  });
+});

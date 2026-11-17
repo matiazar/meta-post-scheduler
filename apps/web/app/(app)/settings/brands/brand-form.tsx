@@ -28,6 +28,8 @@ export function BrandForm({ brand, onCancel, onSaved }: Props) {
       color: brand?.color ?? '#6366f1',
       defaultHashtags: brand?.defaultHashtags ?? '',
       signature: brand?.signature ?? '',
+      description: brand?.description ?? '',
+      tone: brand?.tone ?? '',
       active: brand?.active ?? true,
     },
   });
@@ -104,6 +106,43 @@ export function BrandForm({ brand, onCancel, onSaved }: Props) {
         />
         Marca activa
       </label>
+
+      <div className="sm:col-span-2">
+        <Field
+          label="Descripción de la marca"
+          htmlFor="description"
+          error={errors.description?.message}
+          hint="Qué hace la marca y a quién le habla. La IA lo lee para escribir los textos de los posts"
+        >
+          <Textarea
+            id="description"
+            rows={3}
+            aria-invalid={errors.description ? true : undefined}
+            aria-describedby={describedBy(
+              'description',
+              errors.description?.message,
+              'hint',
+            )}
+            {...register('description')}
+          />
+        </Field>
+      </div>
+
+      <div className="sm:col-span-2">
+        <Field
+          label="Tono de voz"
+          htmlFor="tone"
+          error={errors.tone?.message}
+          hint="Ej: cercano, sin emojis, con humor suave"
+        >
+          <Input
+            id="tone"
+            aria-invalid={errors.tone ? true : undefined}
+            aria-describedby={describedBy('tone', errors.tone?.message, 'hint')}
+            {...register('tone')}
+          />
+        </Field>
+      </div>
 
       <div className="sm:col-span-2">
         <Field

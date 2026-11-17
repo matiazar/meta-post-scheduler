@@ -133,7 +133,8 @@ Contexto: el spec dejaba la IA fuera de la v1; Matias quiere ayuda para redactar
 Decision: modulo `ai` con `AiClient` como unico acceso al modelo (igual que `MetaGraphClient` para Meta). El endpoint devuelve variantes y el composer las pone en el copy base; el usuario edita y publica. Va despues de la etapa 10, para no demorar la validacion del flujo de publicacion.
 Alternativa descartada: generar y publicar sin revision humana.
 Por que: un texto mal generado publicado solo en una Pagina real es un riesgo de marca.
-Consecuencias: nueva variable de entorno con la API key (nunca logueada, usar `redact`), tests con el modelo mockeado, dependencia nueva a registrar en STACK-Y-PAQUETES.md. Proveedor y modelo concretos se eligen al arrancar la etapa.
+Consecuencias: nueva variable de entorno con la API key (nunca logueada, usar `redact`), tests con el modelo mockeado, dependencia nueva a registrar en STACK-Y-PAQUETES.md.
+Elegido al arrancar la etapa: proveedor Claude (Anthropic) con `@anthropic-ai/sdk`. El modelo lee las imagenes del post (achicadas a 1568 px, JPEG) mas la descripcion y el tono de la marca (campos nuevos `description` y `tone`), y devuelve 3 variantes con hashtags. Modelo por defecto `claude-sonnet-5-5`, configurable con `AI_MODEL` (Haiku sirve si se quiere gastar menos). `ANTHROPIC_API_KEY` es opcional: sin ella el endpoint responde 503 y el resto de la app sigue andando. Sin `fallbacks` del lado del servidor (simplificacion: si falla, el usuario reintenta). Maximo 4 imagenes por pedido y 10 pedidos por minuto.
 
 ## DEC-012: DNS con IPv4 primero en la API y el worker
 

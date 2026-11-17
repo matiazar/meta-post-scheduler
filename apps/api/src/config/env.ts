@@ -48,6 +48,9 @@ export const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET: z.string().min(1),
   R2_PUBLIC_BASE_URL: z.url(),
+  // IA para copy y hashtags (etapa 11). Opcional: sin key la API arranca y el endpoint responde 503
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  AI_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
 });
 
 export type Env = z.infer<typeof envSchema>;

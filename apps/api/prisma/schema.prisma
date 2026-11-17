@@ -72,6 +72,10 @@ model Brand {
   color           String          @default("#6366f1")
   defaultHashtags String          @default("")
   signature       String          @default("")
+  /// Que es la marca y a quien le habla: contexto para la IA que redacta los textos (etapa 11)
+  description     String          @default("")
+  /// Tono de voz (ej. "cercano, sin emojis"): contexto para la IA
+  tone            String          @default("")
   active          Boolean         @default(true)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
