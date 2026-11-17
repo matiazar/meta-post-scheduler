@@ -26,7 +26,7 @@ interface ThreadsProfile {
   threads_profile_picture_url?: string;
 }
 
-type AccountRef = Pick<SocialAccount, 'externalId'>;
+type AccountRef = Pick<SocialAccount, 'connectionId'>;
 
 /** Conexion con perfiles de Threads: login propio y token largo de 60 dias (se renueva en ThreadsRefresher). */
 @Injectable()
@@ -140,29 +140,27 @@ export class ThreadsService {
 
   /** Token con el que se publica en esa cuenta de Threads. */
   async tokenForAccount(account: AccountRef): Promise<string> {
-    const connection = await this.connections.find(
-      'THREADS',
-      account.externalId,
-    );
+    const connection = await this.connectionOf(account);
     if (!connection) throw new AccountWithoutTokenException();
     return this.connections.token(connection);
   }
 
   async hasActiveConnection(account: AccountRef): Promise<boolean> {
-    const connection = await this.connections.find(
-      'THREADS',
-      account.externalId,
-    );
+    const connection = await this.connectionOf(account);
     return connection?.status === 'ACTIVE';
   }
 
   /** Threads rechazo el token (codigo 190): marca la conexion y avisa una sola vez. */
   async markInvalid(account: AccountRef): Promise<void> {
-    const connection = await this.connections.find(
-      'THREADS',
-      account.externalId,
-    );
+    const connection = await this.connectionOf(account);
     if (connection) await this.connections.markInvalid(connection);
+  }
+
+  /** La conexion de la cuenta sale de su FK (DEC-014), no de una convencion por externalId. */
+  private async connectionOf(account: AccountRef) {
+    return account.connectionId
+      ? this.connections.findById(account.connectionId)
+      : null;
   }
 
   private credentials(): {

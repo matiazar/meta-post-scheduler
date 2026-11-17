@@ -105,6 +105,32 @@ describe('ConnectionsService (e2e, DB de test)', () => {
     expect(meta.tokenRefreshedAt).toBeNull();
   });
 
+  it('replace pasa las cuentas a la conexion nueva antes de borrar la vieja', async () => {
+    const meta = (externalId: string) => ({
+      provider: 'META' as const,
+      externalId,
+      displayName: externalId,
+      token: 'T',
+      tokenExpiresAt: null,
+      renewable: false,
+    });
+    const old = await service.replace(meta('m1'));
+    await prisma.socialAccount.create({
+      data: {
+        network: 'FACEBOOK',
+        externalId: 'p1',
+        name: 'Pagina',
+        connectionId: old.id,
+      },
+    });
+
+    const fresh = await service.replace(meta('m2'));
+
+    const account = await prisma.socialAccount.findFirstOrThrow();
+    expect(account.connectionId).toBe(fresh.id);
+    expect(await prisma.socialConnection.count()).toBe(1);
+  });
+
   it('varios rechazos a la vez dejan INVALID y mandan un solo aviso', async () => {
     const conn = await save({ displayName: 'kalendox' });
 
@@ -181,6 +207,29 @@ describe('ConnectionsService (e2e, DB de test)', () => {
       expect(refreshFn.mock.calls[0]![0]).toBe('TOKEN-1');
       const a = await service.find('THREADS', 'a');
       expect(service.token(a!)).toBe('NUEVO');
+    });
+
+    it('renueva tambien una conexion que nunca se renovo (tokenRefreshedAt nulo)', async () => {
+      await save({
+        renewable: false,
+        tokenExpiresAt: new Date(Date.now() + 5 * DAY),
+      });
+      refreshFn.mockResolvedValue({
+        token: 'NUEVO',
+        expiresAt: new Date(Date.now() + 60 * DAY),
+      });
+
+      expect(await service.refreshDue()).toBe(1);
+      expect(
+        (await service.find('THREADS', 'u1'))!.tokenRefreshedAt,
+      ).not.toBeNull();
+    });
+
+    it('sin ningun refresher registrado falla en voz alta en vez de no renovar nada', async () => {
+      const bare = new ConnectionsService(prisma, crypto, {
+        notifyAdmin,
+      } as unknown as MailService);
+      await expect(bare.refreshDue()).rejects.toThrow(/ConnectionRefresher/);
     });
 
     it('rechazo del token deja INVALID; un fallo pasajero se reintenta', async () => {

@@ -73,21 +73,25 @@ export class ConnectionsService {
     });
   }
 
-  /** Redes con un solo login vigente (Meta): reemplaza el anterior en una transaccion. */
-  async replace(input: SaveConnectionInput): Promise<SocialConnection> {
-    const [, created] = await this.prisma.$transaction([
-      this.prisma.socialConnection.deleteMany({
-        where: { provider: input.provider },
-      }),
-      this.prisma.socialConnection.create({
-        data: {
-          provider: input.provider,
-          externalId: input.externalId,
-          ...this.data(input, new Date()),
-        },
-      }),
-    ]);
-    return created;
+  /**
+   * Redes con un solo login vigente (Meta): deja solo la conexion nueva. Las cuentas de la
+   * vieja pasan a la nueva antes de borrarla, asi nunca quedan sin conexion si el sync falla.
+   */
+  replace(input: SaveConnectionInput): Promise<SocialConnection> {
+    return this.prisma.$transaction(async (tx) => {
+      const connection = await this.save(input, tx);
+      const old = { provider: input.provider, id: { not: connection.id } };
+      await tx.socialAccount.updateMany({
+        where: { connection: old },
+        data: { connectionId: connection.id },
+      });
+      await tx.socialConnection.deleteMany({ where: old });
+      return connection;
+    });
+  }
+
+  findById(id: string): Promise<SocialConnection | null> {
+    return this.prisma.socialConnection.findUnique({ where: { id } });
   }
 
   find(
@@ -157,6 +161,12 @@ export class ConnectionsService {
    * deja para la proxima vuelta; si la red rechaza el token, la conexion queda INVALID y se avisa.
    */
   async refreshDue(now: Date = new Date()): Promise<number> {
+    if (this.refreshers.length === 0) {
+      // Pasa si el proceso no cargo el modulo de ninguna red: sin esto los tokens vencerian en silencio
+      throw new Error(
+        'No hay ningun ConnectionRefresher registrado: el proceso no cargo los modulos de las redes',
+      );
+    }
     let refreshed = 0;
     for (const refresher of this.refreshers) {
       const due = await this.prisma.socialConnection.findMany({
@@ -166,9 +176,15 @@ export class ConnectionsService {
           tokenExpiresAt: {
             lt: new Date(now.getTime() + refresher.refreshWhenLeftMs),
           },
-          tokenRefreshedAt: {
-            lte: new Date(now.getTime() - refresher.minAgeMs),
-          },
+          // NULL (nunca renovado) tambien entra: en SQL `lte` solo no lo selecciona
+          OR: [
+            { tokenRefreshedAt: null },
+            {
+              tokenRefreshedAt: {
+                lte: new Date(now.getTime() - refresher.minAgeMs),
+              },
+            },
+          ],
         },
       });
       for (const connection of due) {
