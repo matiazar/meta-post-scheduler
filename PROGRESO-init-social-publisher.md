@@ -14,6 +14,7 @@
 - [COMPLETA] Etapa 9: Web calendario y detalle (vista mes y semana, chips por marca y estado, filtro por marca, drag para reprogramar, Sheet de detalle con intentos, reintentar, cancelar y eliminar, borradores sin fecha; typecheck, lint y build limpios; probado en el navegador contra la API real; commit: 923c4a4)
 - [PENDIENTE] Etapa 10: Prueba punta a punta (manual con Matias)
 - [PENDIENTE] Etapa 11: IA para copy y hashtags (sugerencias en el composer, ver DEC-011)
+- [PENDIENTE] Etapa 12: Threads y mas redes (contrato de publisher por red, luego Threads y el resto por sub-etapa, ver DEC-013)
 
 ## Decisiones tomadas sin el usuario
 

@@ -146,3 +146,15 @@ Decision: `src/common/ipv4-first.ts` llama a `dns.setDefaultResultOrder('ipv4fir
 Alternativa descartada: `NODE_OPTIONS` en los scripts de npm (no funciona en cmd de Windows y hay que recordarlo en cada terminal).
 Por que: se aplica igual en cualquier sistema y a todas las conexiones del proceso (Meta, R2, Postgres, Redis).
 Consecuencias: si en produccion IPv6 anda bien se puede quitar sin otros cambios. El error de red de `MetaGraphClient` ahora incluye el codigo de la causa (ej. `(UND_ERR_CONNECT_TIMEOUT)`), sin URL ni token.
+
+## DEC-013: Redes nuevas por etapa 12, con Threads primero y un contrato de publisher por red
+
+Fecha: 2026-11-16
+Estado: Vigente
+Origen: pedido de Matias durante la etapa 10
+
+Contexto: el spec limitaba la v1 a Facebook e Instagram. Matias quiere sumar Threads y varias redes mas.
+Decision: etapa 12 despues de la 10 y la 11. Primero se generaliza el publisher a un contrato por red (conexion, publicacion, limites, renovacion de token), despues se agrega Threads (12a) y el resto una por sub-etapa. Cada red tiene su propio cliente de acceso, igual que `MetaGraphClient`, y su propio OAuth y tokens cifrados (DEC-009).
+Alternativa descartada: pegar cada red dentro de los publishers de FB e IG.
+Por que: Threads usa otro host, otro login y tokens de 60 dias; las otras redes van a diferir todavia mas. Un contrato evita tocar el tick y la cola con cada red.
+Consecuencias: el tipo de cuenta social pasa a admitir mas valores; el contador de caracteres y las reglas de imagen del composer dependen de la red; las redes de terceros (TikTok, X, LinkedIn) pueden exigir revision de app o plan de pago, a evaluar antes de cada sub-etapa. DEC-005 (una sola conexion Meta via Facebook Login) sigue valiendo solo para FB e IG.
