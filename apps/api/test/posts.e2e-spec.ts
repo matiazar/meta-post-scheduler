@@ -102,6 +102,7 @@ describe('Posts (e2e, DB de test, R2 en memoria)', () => {
   let brandId: string;
   let fb: string;
   let ig: string;
+  let th: string;
 
   beforeEach(async () => {
     await resetDatabase(prisma);
@@ -128,6 +129,17 @@ describe('Posts (e2e, DB de test, R2 en memoria)', () => {
           brandId,
           network: 'INSTAGRAM',
           externalId: 'ig-1',
+          name: 'kalendox',
+          username: 'kalendox',
+        },
+      })
+    ).id;
+    th = (
+      await prisma.socialAccount.create({
+        data: {
+          brandId,
+          network: 'THREADS',
+          externalId: 'th-1',
           name: 'kalendox',
           username: 'kalendox',
         },
@@ -377,6 +389,49 @@ describe('Posts (e2e, DB de test, R2 en memoria)', () => {
           brandId,
           caption: '😀'.repeat(2200),
           targets: [{ socialAccountId: ig }],
+        })
+        .expect(201);
+    });
+
+    it('el texto para Threads no puede superar 500 caracteres y los emojis cuentan por sus bytes', async () => {
+      const res = await api
+        .post('/posts')
+        .send({
+          brandId,
+          caption: 'a'.repeat(501),
+          targets: [{ socialAccountId: th }],
+        })
+        .expect(400);
+      expect(res.body.message).toContain('Threads');
+      expect(res.body.message).toContain('500');
+      // 500 justos pasan
+      await api
+        .post('/posts')
+        .send({
+          brandId,
+          caption: 'a'.repeat(500),
+          targets: [{ socialAccountId: th }],
+        })
+        .expect(201);
+      // Un emoji de 4 bytes vale 4: 126 emojis son 504
+      await api
+        .post('/posts')
+        .send({
+          brandId,
+          caption: '😀'.repeat(126),
+          targets: [{ socialAccountId: th }],
+        })
+        .expect(400);
+      // El override de Threads corto deja pasar un texto base largo
+      await api
+        .post('/posts')
+        .send({
+          brandId,
+          caption: 'a'.repeat(600),
+          targets: [
+            { socialAccountId: fb },
+            { socialAccountId: th, captionOverride: 'corto' },
+          ],
         })
         .expect(201);
     });

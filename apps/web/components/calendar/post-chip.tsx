@@ -1,12 +1,8 @@
 import type { DragEvent } from 'react';
-import type { Network, PostListItem } from '@/lib/api/resources';
+import type { PostListItem } from '@/lib/api/resources';
+import { NETWORK_SHORT } from '@/lib/networks';
 import { POST_STATUS } from '@/lib/post-status';
 import { isoToZoned } from '@/lib/tz';
-
-const NETWORK_SHORT: Record<Network, string> = {
-  FACEBOOK: 'FB',
-  INSTAGRAM: 'IG',
-};
 
 interface Props {
   post: PostListItem;

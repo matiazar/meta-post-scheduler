@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MetaApiException } from '../meta/meta.exceptions.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
+import { MetaService } from '../meta/meta.service.js';
+import { MetaNetworkPublisher } from './meta-network.publisher.js';
 import { PublishOutcomeUnknownError } from './publisher.exceptions.js';
 import type { PublishInput, PublishResult } from './publisher.types.js';
 
@@ -11,10 +13,18 @@ interface PhotoResponse {
 
 /** Publica en una Pagina de Facebook: una foto, o un post con varias fotos adjuntas. */
 @Injectable()
-export class FacebookPublisher {
+export class FacebookPublisher extends MetaNetworkPublisher {
+  readonly network = 'FACEBOOK' as const;
+  /** FB no tiene proteccion contra duplicados: si el worker murio, el post pudo haber salido */
+  readonly onHung = 'fail' as const;
   private readonly logger = new Logger(FacebookPublisher.name);
 
-  constructor(private readonly graph: MetaGraphClient) {}
+  constructor(
+    private readonly graph: MetaGraphClient,
+    meta: MetaService,
+  ) {
+    super(meta);
+  }
 
   async publish(input: PublishInput): Promise<PublishResult> {
     const { accountExternalId: pageId, imageUrls, caption, token } = input;

@@ -14,7 +14,7 @@ type Params = Record<string, string | number | boolean | undefined>;
  */
 @Injectable()
 export class MetaGraphClient {
-  private readonly baseUrl: string;
+  protected baseUrl: string;
 
   constructor(@Inject(ENV) env: Env) {
     this.baseUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION}`;

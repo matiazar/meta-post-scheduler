@@ -4,11 +4,14 @@ import { ErrorsModule } from '../errors/errors.module.js';
 import { MailModule } from '../mail/mail.module.js';
 import { MetaModule } from '../meta/meta.module.js';
 import { PostsModule } from '../posts/posts.module.js';
+import { ThreadsModule } from '../threads/threads.module.js';
 import { FacebookPublisher } from './facebook.publisher.js';
 import { InstagramPublisher } from './instagram.publisher.js';
 import { PublishProcessor } from './publish.processor.js';
 import { PublishService } from './publish.service.js';
 import { PUBLISH_QUEUE, TICK_QUEUE } from './publisher.constants.js';
+import { NETWORK_PUBLISHERS } from './publisher.types.js';
+import { ThreadsPublisher } from './threads.publisher.js';
 import { TickProcessor } from './tick.processor.js';
 import { TickService } from './tick.service.js';
 
@@ -20,10 +23,21 @@ import { TickService } from './tick.service.js';
     MailModule,
     MetaModule,
     PostsModule,
+    ThreadsModule,
   ],
   providers: [
     FacebookPublisher,
     InstagramPublisher,
+    ThreadsPublisher,
+    {
+      provide: NETWORK_PUBLISHERS,
+      useFactory: (
+        facebook: FacebookPublisher,
+        instagram: InstagramPublisher,
+        threads: ThreadsPublisher,
+      ) => [facebook, instagram, threads],
+      inject: [FacebookPublisher, InstagramPublisher, ThreadsPublisher],
+    },
     PublishService,
     TickService,
     TickProcessor,

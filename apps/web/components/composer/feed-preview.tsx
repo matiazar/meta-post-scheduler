@@ -161,6 +161,29 @@ export function FeedPreview({
     );
   }
 
+  if (network === 'THREADS') {
+    return (
+      <article
+        aria-label="Vista previa de Threads"
+        className="overflow-hidden rounded-lg border border-line bg-surface text-sm"
+      >
+        <header className="flex items-center gap-2 p-2.5">
+          <Avatar account={account} />
+          <span className="font-semibold">{handle}</span>
+        </header>
+        <p className="line-clamp-6 px-3 pb-2.5 whitespace-pre-line">
+          {text || <span className="text-muted">Tu texto va acá</span>}
+        </p>
+        <Pictures items={items} aspectRatio={aspectRatio} fitMode={fitMode} />
+        <div className="flex items-center gap-4 px-3 py-2.5" aria-hidden>
+          <Heart className="size-5" />
+          <MessageCircle className="size-5" />
+          <Send className="size-5" />
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article
       aria-label="Vista previa de Facebook"

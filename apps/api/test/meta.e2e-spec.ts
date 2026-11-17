@@ -371,6 +371,24 @@ describe('Conexion Meta (e2e, DB de test, Meta mockeado)', () => {
       ).toBe(true);
     });
 
+    it('sync de Meta no desactiva las cuentas de Threads (vienen de otra conexion)', async () => {
+      await connect();
+      await prisma.socialAccount.create({
+        data: {
+          network: 'THREADS',
+          externalId: 'th-1',
+          name: 'kalendox',
+          username: 'kalendox',
+        },
+      });
+      const res = await authed.post('/meta/sync').expect(200);
+      expect(res.body.deactivated).toBe(0);
+      const threads = await prisma.socialAccount.findFirstOrThrow({
+        where: { network: 'THREADS' },
+      });
+      expect(threads.active).toBe(true);
+    });
+
     it('sigue la paginacion de /me/accounts', async () => {
       await connect();
       let n = 0;

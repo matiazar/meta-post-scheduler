@@ -20,6 +20,7 @@ import {
   postsApi,
   type AiNetwork,
   type Brand,
+  type Network,
   type PostInput,
   type PostStatus,
   type PostView,
@@ -28,19 +29,19 @@ import {
 import { POST_STATUS } from '@/lib/post-status';
 import { isFuture, isoToZoned, sameMinute, zonedToIso } from '@/lib/tz';
 import {
-  IG_CAPTION_LIMIT,
-  composerSchema,
-  countChars,
-  type ComposerValues,
-} from '@/lib/validations/forms';
+  CAPTION_LIMITS,
+  NETWORKS,
+  NETWORK_LABEL,
+  NETWORK_TONE,
+  captionLength,
+} from '@/lib/networks';
+import { composerSchema, type ComposerValues } from '@/lib/validations/forms';
 import { AiSuggest } from './ai-suggest';
 import { CaptionEditor, type CaptionTab } from './caption-editor';
 import { ChoiceCard } from './choice-card';
 import { FeedPreview } from './feed-preview';
 import { ImagePicker } from './image-picker';
 import type { MediaItem } from './media-types';
-
-const NETWORK_LABEL = { FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram' } as const;
 
 type Action = 'save' | 'schedule' | 'publish';
 
@@ -96,9 +97,7 @@ export function Composer({ brands, accounts, post }: Props) {
         .map((t) => [t.socialAccountId, t.captionOverride ?? '']),
     ),
   );
-  const [previewNetwork, setPreviewNetwork] = useState<
-    'INSTAGRAM' | 'FACEBOOK'
-  >('INSTAGRAM');
+  const [previewNetwork, setPreviewNetwork] = useState<Network>('INSTAGRAM');
   const [busy, setBusy] = useState<Action | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -136,11 +135,18 @@ export function Composer({ brands, accounts, post }: Props) {
     label: `${NETWORK_LABEL[a.network]} · ${a.name}`,
     network: a.network,
   }));
-  // Para que red escribe la IA: ambas si hay una cuenta de cada una; si no, la que haya (Instagram si no hay)
+  // Para que red escribe la IA: solo Threads si son todas de Threads (texto corto); IG y FB juntas si hay de cada una; si no, la que haya
   const hasFacebook = chosen.some((a) => a.network === 'FACEBOOK');
   const hasInstagram = chosen.some((a) => a.network === 'INSTAGRAM');
-  const aiNetwork: AiNetwork =
-    hasFacebook && hasInstagram ? 'BOTH' : hasFacebook ? 'FACEBOOK' : 'INSTAGRAM';
+  const onlyThreads =
+    chosen.length > 0 && chosen.every((a) => a.network === 'THREADS');
+  const aiNetwork: AiNetwork = onlyThreads
+    ? 'THREADS'
+    : hasFacebook && hasInstagram
+      ? 'BOTH'
+      : hasFacebook
+        ? 'FACEBOOK'
+        : 'INSTAGRAM';
   const suggestion =
     brand && (brand.signature.trim() || brand.defaultHashtags.trim())
       ? [brand.signature.trim(), brand.defaultHashtags.trim()]
@@ -177,11 +183,12 @@ export function Composer({ brands, accounts, post }: Props) {
     const found: string[] = [];
     if (!brandId) found.push('Elegí una marca para el post.');
     for (const account of chosen) {
-      if (account.network !== 'INSTAGRAM') continue;
-      const count = countChars(effectiveCaption(account.id));
-      if (count > IG_CAPTION_LIMIT) {
+      const limit = CAPTION_LIMITS[account.network];
+      if (limit === null) continue;
+      const count = captionLength(account.network, effectiveCaption(account.id));
+      if (count > limit) {
         found.push(
-          `El texto de ${account.name} tiene ${count} caracteres y Instagram admite hasta ${IG_CAPTION_LIMIT}. Acortalo o usá un texto propio más corto para esa cuenta.`,
+          `El texto de ${account.name} tiene ${count} caracteres y ${NETWORK_LABEL[account.network]} admite hasta ${limit}. Acortalo o usá un texto propio más corto para esa cuenta.`,
         );
       }
     }
@@ -387,13 +394,7 @@ export function Composer({ brands, accounts, post }: Props) {
                             {account.name}
                           </span>
                           <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <Badge
-                              tone={
-                                account.network === 'FACEBOOK'
-                                  ? 'info'
-                                  : 'orange'
-                              }
-                            >
+                            <Badge tone={NETWORK_TONE[account.network]}>
                               {NETWORK_LABEL[account.network]}
                             </Badge>
                             {!account.active && <Badge>Desactivada</Badge>}
@@ -621,7 +622,7 @@ export function Composer({ brands, accounts, post }: Props) {
           aria-label="Red de la vista previa"
           className="mb-3 inline-flex rounded-md border border-line bg-surface p-0.5 text-sm"
         >
-          {(['INSTAGRAM', 'FACEBOOK'] as const).map((network) => (
+          {NETWORKS.map((network) => (
             <button
               key={network}
               type="button"

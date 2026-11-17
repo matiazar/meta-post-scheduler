@@ -13,10 +13,10 @@ import {
   type Brand,
   type SocialAccount,
 } from '@/lib/api/resources';
+import { NETWORK_LABEL, NETWORK_TONE } from '@/lib/networks';
 import { useApiData } from '@/lib/use-api-data';
 import { BrandForm } from './brand-form';
 
-const NETWORK_LABEL = { FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram' } as const;
 
 function Skeleton() {
   return (
@@ -208,7 +208,7 @@ export function BrandsSettings() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{account.name}</span>
                   <Badge
-                    tone={account.network === 'FACEBOOK' ? 'info' : 'orange'}
+                    tone={NETWORK_TONE[account.network]}
                   >
                     {NETWORK_LABEL[account.network]}
                   </Badge>

@@ -32,14 +32,8 @@ export type BrandValues = z.infer<typeof brandSchema>;
 
 export const ASPECT_RATIOS = ['SQUARE', 'PORTRAIT', 'LANDSCAPE'] as const;
 export const FIT_MODES = ['CROP', 'PAD'] as const;
-export const IG_CAPTION_LIMIT = 2200;
 export const MAX_IMAGES = 10;
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-
-/** Cuenta caracteres como la API: un emoji vale 1. */
-export function countChars(text: string): number {
-  return Array.from(text).length;
-}
 
 export const composerSchema = z
   .object({

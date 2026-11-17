@@ -1,16 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MetaApiException } from '../meta/meta.exceptions.js';
 import { MetaGraphClient } from '../meta/meta-graph.client.js';
+import { MetaService } from '../meta/meta.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MetaNetworkPublisher } from './meta-network.publisher.js';
 import {
   IG_POLL_INTERVAL_MS,
   IG_POLL_TIMEOUT_MS,
 } from './publisher.constants.js';
 import { PublishTransientError } from './publisher.exceptions.js';
-import type {
-  InstagramPublishInput,
-  PublishResult,
-} from './publisher.types.js';
+import type { PublishInput, PublishResult } from './publisher.types.js';
 
 type ContainerState =
   'FINISHED' | 'IN_PROGRESS' | 'PUBLISHED' | 'EXPIRED' | 'ERROR' | 'MISSING';
@@ -30,7 +29,10 @@ const CONTAINER_BAD = 'IG_CONTAINER_BAD';
  * reintento lo reanuda en vez de crear uno nuevo (evita publicar dos veces).
  */
 @Injectable()
-export class InstagramPublisher {
+export class InstagramPublisher extends MetaNetworkPublisher {
+  readonly network = 'INSTAGRAM' as const;
+  /** El container guardado evita duplicar: se puede reintentar */
+  readonly onHung = 'retry' as const;
   private readonly logger = new Logger(InstagramPublisher.name);
   /** Publicos para poder acelerarlos en los tests */
   pollIntervalMs = IG_POLL_INTERVAL_MS;
@@ -39,11 +41,14 @@ export class InstagramPublisher {
   constructor(
     private readonly graph: MetaGraphClient,
     private readonly prisma: PrismaService,
-  ) {}
+    meta: MetaService,
+  ) {
+    super(meta);
+  }
 
-  async publish(input: InstagramPublishInput): Promise<PublishResult> {
+  async publish(input: PublishInput): Promise<PublishResult> {
     const { token, targetId, accountExternalId: igId } = input;
-    let containerId = input.igContainerId;
+    let containerId = input.containerId;
 
     if (containerId) {
       const state = await this.containerState(containerId, token);
@@ -82,7 +87,7 @@ export class InstagramPublisher {
     };
   }
 
-  private async createContainer(input: InstagramPublishInput): Promise<string> {
+  private async createContainer(input: PublishInput): Promise<string> {
     const { accountExternalId: igId, imageUrls, caption, token } = input;
 
     if (imageUrls.length === 1) {
@@ -164,9 +169,7 @@ export class InstagramPublisher {
    * El container ya figura como PUBLISHED: un intento anterior publico pero no llego a
    * guardar el resultado. Se busca el post entre los ultimos para no publicar de nuevo.
    */
-  private async recoverPublished(
-    input: InstagramPublishInput,
-  ): Promise<PublishResult> {
+  private async recoverPublished(input: PublishInput): Promise<PublishResult> {
     const reference =
       input.previousStartedAt ?? new Date(Date.now() - 3_600_000);
     const since = reference.getTime() - 60_000;

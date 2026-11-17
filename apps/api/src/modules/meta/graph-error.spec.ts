@@ -40,6 +40,17 @@ describe('mapGraphError', () => {
     expect(error.message).toContain('503');
   });
 
+  it('entiende los errores planos de OAuth de Threads', () => {
+    const error = mapGraphError(400, {
+      error_type: 'OAuthException',
+      code: 190,
+      error_message: 'Invalid OAuth access token',
+    });
+    expect(error.code).toBe(190);
+    expect(error.message).toBe('Invalid OAuth access token');
+    expect(error.isTransient).toBe(false);
+  });
+
   it('usa el mensaje de Meta y ignora cuerpos con forma inesperada', () => {
     expect(
       mapGraphError(400, body(100, undefined, 'Invalid param')).message,

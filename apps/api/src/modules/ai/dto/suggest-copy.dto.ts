@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 
 export const AI_MAX_IMAGES = 4;
-export const AI_NETWORKS = ['INSTAGRAM', 'FACEBOOK', 'BOTH'] as const;
+export const AI_NETWORKS = ['INSTAGRAM', 'FACEBOOK', 'THREADS', 'BOTH'] as const;
 export type AiNetwork = (typeof AI_NETWORKS)[number];
 
 const trim = ({ value }: { value: unknown }) =>

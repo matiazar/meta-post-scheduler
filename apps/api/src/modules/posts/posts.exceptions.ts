@@ -47,8 +47,8 @@ export class CarouselSizeException extends BadRequestException {
 }
 
 export class CaptionTooLongException extends BadRequestException {
-  constructor(limit: number) {
-    super(`El texto para Instagram supera el máximo de ${limit} caracteres`);
+  constructor(limit: number, network = 'Instagram') {
+    super(`El texto para ${network} supera el máximo de ${limit} caracteres`);
   }
 }
 

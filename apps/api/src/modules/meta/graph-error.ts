@@ -17,6 +17,9 @@ interface GraphErrorBody {
     code?: unknown;
     error_subcode?: unknown;
   };
+  /** Los errores de OAuth de Threads vienen planos: { error_type, code, error_message } */
+  error_message?: unknown;
+  code?: unknown;
 }
 
 const asNumber = (v: unknown): number | null =>
@@ -30,12 +33,14 @@ export function mapGraphError(
   httpStatus: number,
   body: unknown,
 ): MetaApiException {
-  const error = (body as GraphErrorBody | null)?.error;
-  const code = asNumber(error?.code);
+  const flat = body as GraphErrorBody | null;
+  const error = flat?.error;
+  const code = asNumber(error?.code ?? flat?.code);
   const subcode = asNumber(error?.error_subcode);
+  const rawMessage = error?.message ?? flat?.error_message;
   const message =
-    typeof error?.message === 'string' && error.message
-      ? error.message
+    typeof rawMessage === 'string' && rawMessage
+      ? rawMessage
       : `Meta respondió HTTP ${httpStatus}`;
 
   const dailyLimit =

@@ -3,7 +3,7 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { Textarea } from '@/components/ui/field';
 import type { Network } from '@/lib/api/resources';
-import { IG_CAPTION_LIMIT, countChars } from '@/lib/validations/forms';
+import { CAPTION_LIMITS, captionLength } from '@/lib/networks';
 
 export interface CaptionTab {
   accountId: string;
@@ -22,15 +22,28 @@ interface Props {
   error?: string;
 }
 
-function Counter({ count, limited }: { count: number; limited: boolean }) {
-  const over = limited && count > IG_CAPTION_LIMIT;
+function Counter({ count, limit }: { count: number; limit: number | null }) {
+  const over = limit !== null && count > limit;
   return (
     <span
       className={`text-xs ${over ? 'font-medium text-danger' : 'text-muted'}`}
     >
-      {limited ? `${count} / ${IG_CAPTION_LIMIT}` : `${count} caracteres`}
+      {limit !== null ? `${count} / ${limit}` : `${count} caracteres`}
     </span>
   );
+}
+
+/** El texto base se cuenta contra la red mas exigente entre las elegidas. */
+function strictest(tabs: CaptionTab[]): Network | null {
+  let result: Network | null = null;
+  for (const { network } of tabs) {
+    const limit = CAPTION_LIMITS[network];
+    if (limit === null) continue;
+    if (result === null || limit < (CAPTION_LIMITS[result] ?? Infinity)) {
+      result = network;
+    }
+  }
+  return result;
 }
 
 /** Texto base y, si hace falta, un texto propio por cuenta (pestañas con flechas del teclado). */
@@ -63,7 +76,7 @@ export function CaptionEditor({
     document.getElementById(`${uid}-tab-${order[next]}`)?.focus();
   }
 
-  const igSelected = tabs.some((t) => t.network === 'INSTAGRAM');
+  const strictNetwork = strictest(tabs);
   const tab = tabs.find((t) => t.accountId === active);
   const overrideValue = tab ? (overrides[tab.accountId] ?? '') : '';
   const showSuggestion =
@@ -140,10 +153,11 @@ export function CaptionEditor({
                   </button>
                 )}
                 <Counter
-                  count={countChars(
+                  count={captionLength(
+                    tab.network,
                     overrideValue.trim() ? overrideValue : caption,
                   )}
-                  limited={tab.network === 'INSTAGRAM'}
+                  limit={CAPTION_LIMITS[tab.network]}
                 />
               </div>
             </div>
@@ -182,7 +196,10 @@ export function CaptionEditor({
               ) : (
                 <span />
               )}
-              <Counter count={countChars(caption)} limited={igSelected} />
+              <Counter
+                count={captionLength(strictNetwork ?? 'FACEBOOK', caption)}
+                limit={strictNetwork ? CAPTION_LIMITS[strictNetwork] : null}
+              />
             </div>
           </>
         )}

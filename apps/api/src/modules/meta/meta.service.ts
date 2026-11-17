@@ -357,7 +357,12 @@ export class MetaService {
     });
 
     const deactivated = await this.prisma.socialAccount.updateMany({
-      where: { id: { notIn: seenIds }, active: true },
+      // Solo FB e IG: las cuentas de Threads vienen de otra conexion y no se tocan aca
+      where: {
+        id: { notIn: seenIds },
+        active: true,
+        network: { in: ['FACEBOOK', 'INSTAGRAM'] },
+      },
       data: { active: false },
     });
     return {

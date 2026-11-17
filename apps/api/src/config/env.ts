@@ -51,12 +51,34 @@ export const envSchema = z.object({
   // IA para copy y hashtags (etapa 11). Opcional: sin key la API arranca y el endpoint responde 503
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   AI_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+  // Threads (etapa 12). Login propio: App ID y secreto del caso de uso Threads (no los de Meta).
+  // Opcionales: sin las tres, la API arranca y conectar Threads responde 503
+  THREADS_APP_ID: z.string().min(1).optional(),
+  THREADS_APP_SECRET: z.string().min(1).optional(),
+  THREADS_REDIRECT_URI: z.url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
+const THREADS_VARS = [
+  'THREADS_APP_ID',
+  'THREADS_APP_SECRET',
+  'THREADS_REDIRECT_URI',
+] as const;
+
 export function parseEnv(raw: Record<string, string | undefined>): Env {
   const result = envSchema.safeParse(raw);
+  // Threads va completo o no va: a medias seria una conexion que falla recien al usarla
+  const threadsSet = THREADS_VARS.filter((name) => Boolean(raw[name]));
+  if (
+    result.success &&
+    threadsSet.length > 0 &&
+    threadsSet.length < THREADS_VARS.length
+  ) {
+    throw new InvalidEnvException(
+      THREADS_VARS.filter((name) => !raw[name]),
+    );
+  }
   if (!result.success) {
     // Solo nombres de variables: nunca los valores (pueden ser secretos).
     const names = [

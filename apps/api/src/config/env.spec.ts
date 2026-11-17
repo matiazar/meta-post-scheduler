@@ -33,6 +33,19 @@ describe('parseEnv', () => {
     expect(env.SMTP_PORT).toBe(587);
   });
 
+  it('Threads es opcional, pero va completo o no va', () => {
+    expect(parseEnv(valid).THREADS_APP_ID).toBeUndefined();
+    const threads = {
+      THREADS_APP_ID: '999',
+      THREADS_APP_SECRET: 'threads-secret',
+      THREADS_REDIRECT_URI: 'http://localhost:3001/threads/callback',
+    };
+    expect(parseEnv({ ...valid, ...threads }).THREADS_APP_ID).toBe('999');
+    expect(() => parseEnv({ ...valid, THREADS_APP_ID: '999' })).toThrow(
+      /THREADS_APP_SECRET.*THREADS_REDIRECT_URI/,
+    );
+  });
+
   it('NODE_ENV es obligatorio', () => {
     const { NODE_ENV: _omit, ...withoutNodeEnv } = valid;
     expect(() => parseEnv(withoutNodeEnv)).toThrow(/NODE_ENV/);

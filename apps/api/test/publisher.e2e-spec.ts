@@ -15,6 +15,9 @@ import { PrismaService } from '../src/modules/prisma/prisma.service.js';
 import { FacebookPublisher } from '../src/modules/publisher/facebook.publisher.js';
 import { InstagramPublisher } from '../src/modules/publisher/instagram.publisher.js';
 import { PublishService } from '../src/modules/publisher/publish.service.js';
+import { ThreadsPublisher } from '../src/modules/publisher/threads.publisher.js';
+import type { ThreadsGraphClient } from '../src/modules/meta/threads-graph.client.js';
+import type { ThreadsService } from '../src/modules/threads/threads.service.js';
 import { TickService } from '../src/modules/publisher/tick.service.js';
 import { resetDatabase, testDatabaseUrl } from './helpers/test-db.js';
 import { makeTestEnv } from './helpers/test-env.js';
@@ -29,6 +32,7 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
   let publish: PublishService;
   let tick: TickService;
   let ig: InstagramPublisher;
+  let threadsPub: ThreadsPublisher;
   const env: Env = makeTestEnv({ DATABASE_URL: testDatabaseUrl() });
 
   // Meta falso: nunca sale a internet
@@ -68,6 +72,14 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
     markCurrentConnectionInvalid: markInvalid,
   } as unknown as MetaService;
 
+  const threadsActive = { value: true };
+  const threadsInvalid = vi.fn().mockResolvedValue(undefined);
+  const fakeThreads = {
+    hasActiveConnection: () => Promise.resolve(threadsActive.value),
+    tokenForAccount: () => Promise.resolve('THREADS-TOKEN-SECRETO'),
+    markInvalid: threadsInvalid,
+  } as unknown as ThreadsService;
+
   const notifyAdmin = vi.fn().mockResolvedValue(undefined);
   const fakeMail = { notifyAdmin } as unknown as MailService;
   const report = vi.fn().mockResolvedValue(undefined);
@@ -92,17 +104,22 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
     prisma = app.get(PrismaService);
 
     const posts = new PostsService(prisma, {} as unknown as PostMediaService);
-    const facebook = new FacebookPublisher(fakeGraph);
-    ig = new InstagramPublisher(fakeGraph, prisma);
+    const facebook = new FacebookPublisher(fakeGraph, fakeMeta);
+    ig = new InstagramPublisher(fakeGraph, prisma, fakeMeta);
     ig.pollIntervalMs = 1;
     ig.pollTimeoutMs = 200;
+    threadsPub = new ThreadsPublisher(
+      fakeGraph as unknown as ThreadsGraphClient,
+      prisma,
+      fakeThreads,
+    );
+    threadsPub.pollIntervalMs = 1;
+    threadsPub.pollTimeoutMs = 200;
     publish = new PublishService(
       prisma,
       posts,
-      fakeMeta,
       fakeMail,
-      facebook,
-      ig,
+      [facebook, ig, threadsPub],
       fakeReporter,
     );
     tick = new TickService(prisma, posts, publish, fakeQueue);
@@ -116,12 +133,14 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
   let brandId: string;
   let fbAccount: string;
   let igAccount: string;
+  let thAccount: string;
 
   beforeEach(async () => {
     await resetDatabase(prisma);
     routes.clear();
     calls.length = 0;
     connectionActive.value = true;
+    threadsActive.value = true;
     vi.clearAllMocks();
     brandId = (
       await prisma.brand.create({
@@ -146,6 +165,16 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
           externalId: 'ig-1',
           name: 'kalendox',
           pageId: 'page-1',
+        },
+      })
+    ).id;
+    thAccount = (
+      await prisma.socialAccount.create({
+        data: {
+          brandId,
+          network: 'THREADS',
+          externalId: 'th-1',
+          name: 'kalendox',
         },
       })
     ).id;
@@ -665,6 +694,181 @@ describe('Publicador (e2e, DB de test, Meta falso)', () => {
       expect(t.status).toBe('FAILED');
       expect(t.dailyLimitSince).toBeNull();
       expect(notifyAdmin).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Threads', () => {
+    const thRoutes = (state: () => string = () => 'FINISHED') => {
+      let n = 0;
+      routes.set('POST /v1.0/th-1/threads', () => ({
+        id: `th-container-${++n}`,
+      }));
+      for (let i = 1; i <= 4; i++) {
+        routes.set(`GET /v1.0/th-container-${i}`, () => ({ status: state() }));
+      }
+      routes.set('POST /v1.0/th-1/threads_publish', () => ({
+        id: 'th-media-1',
+      }));
+      routes.set('GET /v1.0/th-media-1', () => ({
+        permalink: 'https://www.threads.com/@kalendox/post/abc',
+      }));
+    };
+
+    it('imagen sola: container IMAGE con el texto, espera FINISHED, publica y guarda el link', async () => {
+      const { targetId, postId } = await seed({
+        accounts: [thAccount],
+        caption: 'Texto Threads',
+      });
+      await queued(targetId);
+      const states = ['IN_PROGRESS', 'FINISHED'];
+      thRoutes(() => states.shift() ?? 'FINISHED');
+
+      await publish.publishTarget(targetId);
+
+      const t = await target(targetId);
+      expect(t.status).toBe('PUBLISHED');
+      expect(t.externalPostId).toBe('th-media-1');
+      expect(t.permalink).toBe('https://www.threads.com/@kalendox/post/abc');
+      expect(t.igContainerId).toBe('th-container-1');
+      expect((await post(postId)).status).toBe('PUBLISHED');
+      expect(
+        calls.find((c) => c.path === '/v1.0/th-1/threads')!.params,
+      ).toMatchObject({ media_type: 'IMAGE', text: 'Texto Threads' });
+      expect(
+        calls.find((c) => c.path === '/v1.0/th-1/threads_publish')!.params,
+      ).toEqual({ creation_id: 'th-container-1' });
+    });
+
+    it('carrusel: un container por imagen, uno padre CAROUSEL y publica el padre', async () => {
+      const { targetId } = await seed({ accounts: [thAccount], images: 3 });
+      await queued(targetId);
+      thRoutes();
+
+      await publish.publishTarget(targetId);
+
+      const creations = calls.filter(
+        (c) => c.method === 'POST' && c.path === '/v1.0/th-1/threads',
+      );
+      expect(creations).toHaveLength(4);
+      expect(
+        creations.slice(0, 3).every((c) => c.params.is_carousel_item === true),
+      ).toBe(true);
+      expect(creations[3].params).toMatchObject({
+        media_type: 'CAROUSEL',
+        children: 'th-container-1,th-container-2,th-container-3',
+      });
+      expect((await target(targetId)).igContainerId).toBe('th-container-4');
+    });
+
+    it('si la espera falla, el reintento reanuda el container sin crear otro', async () => {
+      const { targetId } = await seed({ accounts: [thAccount] });
+      await queued(targetId);
+      thRoutes(() => 'IN_PROGRESS');
+
+      await publish.publishTarget(targetId);
+
+      let t = await target(targetId);
+      expect(t.status).toBe('PENDING');
+      expect(t.igContainerId).toBe('th-container-1');
+      expect(t.lastErrorCode).toBe('THREADS_PROCESSING_TIMEOUT');
+
+      routes.set('GET /v1.0/th-container-1', () => ({ status: 'FINISHED' }));
+      calls.length = 0;
+      await queued(targetId);
+      await publish.publishTarget(targetId);
+
+      t = await target(targetId);
+      expect(t.status).toBe('PUBLISHED');
+      expect(
+        calls.some(
+          (c) => c.method === 'POST' && c.path === '/v1.0/th-1/threads',
+        ),
+      ).toBe(false);
+    });
+
+    it('ya estaba PUBLISHED: encuentra el post por texto y fecha y no vuelve a publicar', async () => {
+      const startedAt = new Date(Date.now() - minutes(2));
+      const { targetId } = await seed({
+        accounts: [thAccount],
+        caption: 'Texto Threads',
+        target: {
+          status: 'QUEUED',
+          queuedAt: new Date(),
+          startedAt,
+          igContainerId: 'th-container-1',
+        },
+      });
+      routes.set('GET /v1.0/th-container-1', () => ({ status: 'PUBLISHED' }));
+      routes.set('GET /v1.0/th-1/threads', () => ({
+        data: [
+          {
+            id: 'th-media-9',
+            text: 'Texto Threads',
+            timestamp: new Date(startedAt.getTime() + 5_000).toISOString(),
+            permalink: 'https://www.threads.com/@kalendox/post/zzz',
+          },
+        ],
+      }));
+
+      await publish.publishTarget(targetId);
+
+      const t = await target(targetId);
+      expect(t.status).toBe('PUBLISHED');
+      expect(t.externalPostId).toBe('th-media-9');
+      expect(calls.some((c) => c.path.endsWith('/threads_publish'))).toBe(
+        false,
+      );
+    });
+
+    it('token invalido (190): FAILED y marca la conexion de Threads como invalida', async () => {
+      const { targetId } = await seed({ accounts: [thAccount] });
+      await queued(targetId);
+      routes.set('POST /v1.0/th-1/threads', () => {
+        throw new MetaApiException(
+          'Token vencido',
+          190,
+          null,
+          false,
+          false,
+          400,
+        );
+      });
+
+      await publish.publishTarget(targetId);
+
+      expect((await target(targetId)).status).toBe('FAILED');
+      expect(threadsInvalid).toHaveBeenCalledTimes(1);
+      expect(markInvalid).not.toHaveBeenCalled();
+    });
+
+    it('sin conexion activa con Threads: FAILED sin llamar a Threads', async () => {
+      const { targetId } = await seed({ accounts: [thAccount] });
+      await queued(targetId);
+      threadsActive.value = false;
+
+      await publish.publishTarget(targetId);
+
+      const t = await target(targetId);
+      expect(t.status).toBe('FAILED');
+      expect(t.lastErrorCode).toBe('THREADS_DISCONNECTED');
+      expect(calls).toHaveLength(0);
+    });
+
+    it('PUBLISHING colgado en Threads: vuelve a PENDING gastando un intento (el container evita duplicar)', async () => {
+      const { targetId } = await seed({
+        accounts: [thAccount],
+        target: {
+          status: 'PUBLISHING',
+          startedAt: new Date(Date.now() - minutes(20)),
+          igContainerId: 'th-container-1',
+        },
+      });
+
+      await tick.tick();
+
+      const t = await target(targetId);
+      expect(t.status).toBe('PENDING');
+      expect(t.attempts).toBe(1);
     });
   });
 

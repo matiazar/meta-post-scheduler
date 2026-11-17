@@ -7,6 +7,11 @@ import type {
   Prisma,
 } from '../../generated/prisma/client.js';
 import { BrandNotFoundException } from '../brands/brands.exceptions.js';
+import {
+  CAPTION_LIMITS,
+  NETWORK_NAMES,
+  captionLength,
+} from '../../common/network-limits.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   CreatePostDto,
@@ -27,7 +32,6 @@ import {
   TargetNotInBrandException,
 } from './posts.exceptions.js';
 
-export const IG_CAPTION_LIMIT = 2200;
 export const MAX_MEDIA = 10;
 const MAX_RANGE_DAYS = 100;
 const MAX_LIST = 500;
@@ -127,11 +131,6 @@ interface Draft {
   scheduledAt: Date | null;
   mediaIds: string[];
   targets: { socialAccountId: string; captionOverride: string | null }[];
-}
-
-/** Cantidad de caracteres como los cuenta Instagram (puntos de codigo, no unidades UTF-16). */
-export function countChars(text: string): number {
-  return Array.from(text).length;
 }
 
 @Injectable()
@@ -536,10 +535,13 @@ export class PostsService {
 
     const networkById = new Map(accounts.map((a) => [a.id, a.network]));
     for (const target of draft.targets) {
-      if (networkById.get(target.socialAccountId) !== 'INSTAGRAM') continue;
+      const network = networkById.get(target.socialAccountId);
+      if (!network) continue;
+      const limit = CAPTION_LIMITS[network];
+      if (limit === null) continue;
       const effective = target.captionOverride ?? draft.caption;
-      if (countChars(effective) > IG_CAPTION_LIMIT) {
-        throw new CaptionTooLongException(IG_CAPTION_LIMIT);
+      if (captionLength(network, effective) > limit) {
+        throw new CaptionTooLongException(limit, NETWORK_NAMES[network]);
       }
     }
   }

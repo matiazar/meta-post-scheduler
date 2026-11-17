@@ -150,6 +150,23 @@ describe('AiService.suggestCopy', () => {
     expect(fb.variants[0].hashtags).toHaveLength(3);
   });
 
+  it('para Threads el texto es corto (400) y lleva a lo sumo 1 hashtag', async () => {
+    const reply = JSON.stringify({
+      variants: [{ text: 'x'.repeat(900), hashtags: ['uno', 'dos', 'tres'] }],
+    });
+    const { service, completeJson } = setup({ reply });
+    const result = await service.suggestCopy({
+      brandId: 'b1',
+      mediaIds: ['m1'],
+      network: 'THREADS',
+    });
+    expect(result.variants[0].text).toHaveLength(400);
+    expect(result.variants[0].hashtags).toEqual(['uno']);
+    const request = completeJson.mock.calls[0][0] as { text: string };
+    expect(request.text).toContain('Threads');
+    expect(request.text).toContain('Largo máximo de cada texto: 400');
+  });
+
   it('descarta variantes vacias, corta el texto largo y devuelve a lo sumo 3', async () => {
     const reply = JSON.stringify({
       variants: [

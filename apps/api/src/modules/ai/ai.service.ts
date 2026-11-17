@@ -30,17 +30,27 @@ export interface SuggestedCopy {
   variants: CopyVariant[];
 }
 
-/** Deja lugar para la firma y los hashtags fijos de la marca dentro de los 2200 de Instagram */
-const MAX_TEXT_CHARS = 1800;
+/**
+ * Largo maximo del texto por red. IG/FB dejan lugar para la firma y los hashtags fijos de la
+ * marca dentro de los 2200 de Instagram; Threads tiene 500 en total y cuenta los emojis como bytes.
+ */
+const MAX_TEXT_CHARS: Record<AiNetwork, number> = {
+  INSTAGRAM: 1800,
+  FACEBOOK: 1800,
+  BOTH: 1800,
+  THREADS: 400,
+};
 const MAX_VARIANTS = 3;
 const MAX_HASHTAGS: Record<AiNetwork, number> = {
   INSTAGRAM: 10,
   BOTH: 10,
   FACEBOOK: 3,
+  THREADS: 1,
 };
 const NETWORK_LABEL: Record<AiNetwork, string> = {
   INSTAGRAM: 'Instagram (máximo 2200 caracteres)',
   FACEBOOK: 'Facebook',
+  THREADS: 'Threads (máximo 500 caracteres en total, texto corto)',
   BOTH: 'Instagram y Facebook (respetá el límite de Instagram: 2200 caracteres)',
 };
 /** Tope de pedidos por minuto: cada uno cuesta plata y el panel es de un solo usuario */
@@ -102,7 +112,7 @@ export class AiService {
       `Hashtags fijos de la marca (la app los agrega, no los repitas): ${brand.defaultHashtags.trim() || '(ninguno)'}`,
       `Red: ${NETWORK_LABEL[network]}`,
       `Cantidad de imágenes: ${imageCount}`,
-      `Largo máximo de cada texto: ${MAX_TEXT_CHARS} caracteres`,
+      `Largo máximo de cada texto: ${MAX_TEXT_CHARS[network]} caracteres`,
       `Indicación del usuario: ${hint?.trim() || '(ninguna)'}`,
     ].join('\n');
   }
@@ -137,7 +147,7 @@ export class AiService {
         hashtags.push(tag);
         if (hashtags.length === MAX_HASHTAGS[network]) break;
       }
-      variants.push({ text: text.slice(0, MAX_TEXT_CHARS), hashtags });
+      variants.push({ text: text.slice(0, MAX_TEXT_CHARS[network]), hashtags });
       if (variants.length === MAX_VARIANTS) break;
     }
     if (variants.length === 0) throw new AiBadResponseException();

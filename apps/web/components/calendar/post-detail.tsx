@@ -11,9 +11,9 @@ import { useToast } from '@/components/ui/toast';
 import { mediaApi, postsApi } from '@/lib/api/resources';
 import { POST_STATUS, TARGET_STATUS } from '@/lib/post-status';
 import { formatZoned } from '@/lib/tz';
+import { NETWORK_LABEL, NETWORK_TONE } from '@/lib/networks';
 import { useApiData } from '@/lib/use-api-data';
 
-const NETWORK_LABEL = { FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram' } as const;
 const CANCELLABLE = ['DRAFT', 'SCHEDULED', 'PUBLISHING'];
 const EDITABLE = ['DRAFT', 'SCHEDULED'];
 
@@ -147,7 +147,7 @@ export function PostDetail({ postId, onChanged, onClose }: Props) {
                 <li key={t.id} className="rounded-lg border border-line p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{t.accountName}</span>
-                    <Badge tone={t.network === 'FACEBOOK' ? 'info' : 'orange'}>
+                    <Badge tone={NETWORK_TONE[t.network]}>
                       {NETWORK_LABEL[t.network]}
                     </Badge>
                     <Badge tone={ts.tone}>{ts.label}</Badge>

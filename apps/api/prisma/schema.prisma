@@ -18,6 +18,7 @@ enum MetaConnectionStatus {
 enum Network {
   FACEBOOK
   INSTAGRAM
+  THREADS
 }
 
 enum AspectRatio {
@@ -62,6 +63,22 @@ model MetaConnection {
   updatedAt          DateTime             @updatedAt
 
   @@map("meta_connections")
+}
+
+/// Conexion con un perfil de Threads (una por perfil). Login propio, distinto al de Meta (DEC-013).
+/// El token largo dura 60 dias y se renueva solo mientras tenga mas de 24 h.
+model ThreadsConnection {
+  id               String               @id @default(cuid())
+  threadsUserId    String               @unique
+  username         String
+  tokenEnc         String
+  tokenExpiresAt   DateTime?
+  tokenRefreshedAt DateTime             @default(now())
+  status           MetaConnectionStatus @default(ACTIVE)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@map("threads_connections")
 }
 
 /// Una marca por app propia (Kalendox, Envios Box, etc.)
@@ -179,7 +196,7 @@ model PostTarget {
   externalPostId  String?
   permalink       String?
   publishedAt     DateTime?
-  /// Container padre en carrusel, el unico en imagen sola (proteccion contra doble publicacion)
+  /// Container padre en carrusel, el unico en imagen sola (proteccion contra doble publicacion). Lo usan IG y Threads
   igContainerId   String?
   /// Primer rechazo por limite diario de IG de la racha actual (tope: 24 h)
   dailyLimitSince DateTime?

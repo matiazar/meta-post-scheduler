@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { NETWORK_NAMES } from '../../common/network-limits.js';
 import { redactString } from '../../common/redact.js';
-import type { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma, SocialAccount } from '../../generated/prisma/client.js';
 import type { Network } from '../../generated/prisma/enums.js';
 import { ErrorReporterService } from '../errors/error-reporter.service.js';
 import { MailService } from '../mail/mail.service.js';
@@ -9,11 +10,8 @@ import {
   MetaApiException,
 } from '../meta/meta.exceptions.js';
 import { TOKEN_INVALID_CODE } from '../meta/graph-error.js';
-import { MetaService } from '../meta/meta.service.js';
 import { PostsService } from '../posts/posts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { FacebookPublisher } from './facebook.publisher.js';
-import { InstagramPublisher } from './instagram.publisher.js';
 import {
   DAILY_LIMIT_RETRY_MS,
   DAILY_LIMIT_WINDOW_MS,
@@ -26,7 +24,11 @@ import {
   PublishPermanentError,
   PublishTransientError,
 } from './publisher.exceptions.js';
-import type { PublishResult } from './publisher.types.js';
+import {
+  NETWORK_PUBLISHERS,
+  type NetworkPublisher,
+  type PublishResult,
+} from './publisher.types.js';
 
 const SNIPPET_MAX = 500;
 
@@ -55,15 +57,28 @@ interface TargetForFailure {
 export class PublishService {
   private readonly logger = new Logger(PublishService.name);
 
+  private readonly byNetwork: Map<Network, NetworkPublisher>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly posts: PostsService,
-    private readonly meta: MetaService,
     private readonly mail: MailService,
-    private readonly facebook: FacebookPublisher,
-    private readonly instagram: InstagramPublisher,
+    @Inject(NETWORK_PUBLISHERS) publishers: NetworkPublisher[],
     private readonly reporter: ErrorReporterService,
-  ) {}
+  ) {
+    this.byNetwork = new Map(publishers.map((p) => [p.network, p]));
+  }
+
+  private publisherFor(network: Network): NetworkPublisher {
+    const publisher = this.byNetwork.get(network);
+    if (!publisher) {
+      throw new PublishPermanentError(
+        `Todavía no se puede publicar en ${network}`,
+        'NETWORK_UNSUPPORTED',
+      );
+    }
+    return publisher;
+  }
 
   async publishTarget(targetId: string): Promise<void> {
     const target = await this.prisma.postTarget.findUnique({
@@ -103,11 +118,11 @@ export class PublishService {
       if (result.unverified) {
         await this.notify(
           `Revisar publicación en ${target.socialAccount.name}`,
-          `Instagram indica que el post ${target.postId} ya estaba publicado en ${target.socialAccount.name}, pero no se pudo encontrar para guardar su link. Revisá la cuenta para confirmar que salió una sola vez.`,
+          `${NETWORK_NAMES[target.socialAccount.network]} indica que el post ${target.postId} ya estaba publicado en ${target.socialAccount.name}, pero no se pudo encontrar para guardar su link. Revisá la cuenta para confirmar que salió una sola vez.`,
         );
       }
     } catch (error) {
-      const failure = await this.classify(error);
+      const failure = await this.classify(error, target.socialAccount);
       await this.handleFailure(target, attempt.id, failure);
     }
   }
@@ -126,7 +141,7 @@ export class PublishService {
         errorMessage: 'El proceso se interrumpió durante la publicación',
       },
     });
-    if (target.socialAccount.network === 'FACEBOOK') {
+    if (this.publisherFor(target.socialAccount.network).onHung === 'fail') {
       await this.fail(target, new PublishOutcomeUnknownError().message, 'HUNG');
       return;
     }
@@ -148,12 +163,8 @@ export class PublishService {
         'ACCOUNT_INACTIVE',
       );
     }
-    if (!(await this.meta.hasActiveConnection())) {
-      throw new PublishPermanentError(
-        'La conexión con Meta no está activa. Reconectá desde Ajustes > Meta',
-        'META_DISCONNECTED',
-      );
-    }
+    const publisher = this.publisherFor(account.network);
+    await publisher.assertConnected(account);
     const imageUrls = target.post.media.map((m) => m.publicUrl);
     const urls = imageUrls.filter((u): u is string => Boolean(u));
     if (urls.length === 0 || urls.length !== imageUrls.length) {
@@ -162,23 +173,23 @@ export class PublishService {
         'MEDIA_MISSING',
       );
     }
-    const token = await this.meta.tokenForAccount(account);
+    const token = await publisher.tokenFor(account);
     const base = {
       targetId: target.id,
       accountExternalId: account.externalId,
       caption: target.captionOverride ?? target.post.caption,
       imageUrls: urls,
       token,
-    };
-    if (account.network === 'FACEBOOK') return this.facebook.publish(base);
-    return this.instagram.publish({
-      ...base,
-      igContainerId: target.igContainerId,
+      containerId: target.igContainerId,
       previousStartedAt: target.startedAt,
-    });
+    };
+    return publisher.publish(base);
   }
 
-  private async classify(error: unknown): Promise<Failure> {
+  private async classify(
+    error: unknown,
+    account: SocialAccount,
+  ): Promise<Failure> {
     if (error instanceof MetaApiException) {
       const snippet = redactString(
         `code=${error.code} subcode=${error.subcode} http=${error.httpStatus}`,
@@ -193,11 +204,11 @@ export class PublishService {
         };
       }
       if (error.code === TOKEN_INVALID_CODE) {
-        await this.invalidateConnection();
+        await this.invalidateConnection(account);
         return {
           kind: 'permanent',
           message:
-            'Meta rechazó el token. Reconectá desde Ajustes > Meta y reintentá',
+            'La red rechazó el token. Reconectá la cuenta desde Ajustes y reintentá',
           code,
           snippet,
         };
@@ -249,9 +260,9 @@ export class PublishService {
     };
   }
 
-  private async invalidateConnection(): Promise<void> {
+  private async invalidateConnection(account: SocialAccount): Promise<void> {
     try {
-      await this.meta.markCurrentConnectionInvalid();
+      await this.publisherFor(account.network).invalidateConnection(account);
     } catch (error) {
       // El destino igual queda FAILED: se deja constancia y se sigue
       this.logger.error(

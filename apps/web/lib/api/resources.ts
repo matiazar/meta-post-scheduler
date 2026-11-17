@@ -1,6 +1,6 @@
 import { API_URL, api } from './client';
 
-export type Network = 'FACEBOOK' | 'INSTAGRAM';
+export type Network = 'FACEBOOK' | 'INSTAGRAM' | 'THREADS';
 
 export interface Brand {
   id: string;
@@ -159,7 +159,7 @@ export const accountsApi = {
     }),
 };
 
-export type AiNetwork = 'INSTAGRAM' | 'FACEBOOK' | 'BOTH';
+export type AiNetwork = 'INSTAGRAM' | 'FACEBOOK' | 'THREADS' | 'BOTH';
 
 export interface AiVariant {
   /** Texto del post, sin hashtags ni firma */
@@ -180,6 +180,21 @@ export const aiApi = {
       method: 'POST',
       body: input,
     }),
+};
+
+export interface ThreadsStatus {
+  /** La API tiene las variables de Threads cargadas */
+  configured: boolean;
+  connections: {
+    username: string;
+    status: 'ACTIVE' | 'INVALID';
+    tokenExpiresAt: string | null;
+  }[];
+}
+
+export const threadsApi = {
+  status: () => api<ThreadsStatus>('/threads/status'),
+  connectUrl: () => api<{ url: string }>('/threads/connect-url'),
 };
 
 export const metaApi = {
