@@ -11,12 +11,12 @@ import {
   accountsApi,
   brandsApi,
   type Brand,
+  type Network,
   type SocialAccount,
 } from '@/lib/api/resources';
-import { NETWORK_LABEL, NETWORK_TONE } from '@/lib/networks';
+import { NETWORKS, NETWORK_LABEL } from '@/lib/networks';
 import { useApiData } from '@/lib/use-api-data';
 import { BrandForm } from './brand-form';
-
 
 function Skeleton() {
   return (
@@ -55,6 +55,7 @@ export function BrandsSettings() {
   const [editing, setEditing] = useState<Editing>(null);
   const [toDelete, setToDelete] = useState<Brand | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [network, setNetwork] = useState<Network | null>(null);
 
   async function confirmDelete() {
     if (!toDelete) return;
@@ -109,6 +110,15 @@ export function BrandsSettings() {
 
   const brandList = brands.data;
   const accountList = accounts.data;
+  // Una pestaña por cada red que tiene cuentas; si la elegida ya no existe, la primera
+  const networkTabs = NETWORKS.filter((n) =>
+    accountList.some((a) => a.network === n),
+  );
+  const activeNetwork =
+    network && networkTabs.includes(network) ? network : networkTabs[0];
+  const visibleAccounts = accountList.filter(
+    (a) => a.network === activeNetwork,
+  );
 
   return (
     <>
@@ -198,42 +208,91 @@ export function BrandsSettings() {
           Meta para traer tus Páginas e Instagram.
         </p>
       ) : (
-        <ul className="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
-          {accountList.map((account) => (
-            <li
-              key={account.id}
-              className="flex flex-wrap items-center gap-3 p-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{account.name}</span>
-                  <Badge
-                    tone={NETWORK_TONE[account.network]}
-                  >
-                    {NETWORK_LABEL[account.network]}
-                  </Badge>
-                  {!account.active && <Badge>Desactivada</Badge>}
-                </div>
-                {account.username && (
-                  <p className="text-xs text-muted">@{account.username}</p>
-                )}
-              </div>
-              <Select
-                aria-label={`Marca de ${account.name}`}
-                className="w-48"
-                value={account.brandId ?? ''}
-                onChange={(event) => void assign(account, event.target.value)}
+        <>
+          <div
+            role="tablist"
+            aria-label="Cuentas por red"
+            className="mt-3 flex gap-1 overflow-x-auto border-b border-line"
+          >
+            {networkTabs.map((n) => {
+              const selected = n === activeNetwork;
+              const count = accountList.filter((a) => a.network === n).length;
+              return (
+                <button
+                  key={n}
+                  id={`tab-${n}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="accounts-panel"
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setNetwork(n)}
+                  onKeyDown={(event) => {
+                    const step =
+                      event.key === 'ArrowRight'
+                        ? 1
+                        : event.key === 'ArrowLeft'
+                          ? -1
+                          : 0;
+                    if (step === 0) return;
+                    event.preventDefault();
+                    const next =
+                      networkTabs[
+                        (networkTabs.indexOf(n) + step + networkTabs.length) %
+                          networkTabs.length
+                      ];
+                    setNetwork(next);
+                    document.getElementById(`tab-${next}`)?.focus();
+                  }}
+                  className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm transition-colors ${
+                    selected
+                      ? 'border-accent font-medium text-foreground'
+                      : 'border-transparent text-muted hover:text-foreground'
+                  }`}
+                >
+                  {NETWORK_LABEL[n]}
+                  <span className="ml-1.5 text-xs text-muted">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <ul
+            id="accounts-panel"
+            role="tabpanel"
+            aria-labelledby={`tab-${activeNetwork}`}
+            className="mt-3 flex flex-col divide-y divide-line rounded-lg border border-line bg-surface"
+          >
+            {visibleAccounts.map((account) => (
+              <li
+                key={account.id}
+                className="flex flex-wrap items-center gap-3 p-3"
               >
-                <option value="">Sin marca</option>
-                {brandList.map((brand) => (
-                  <option key={brand.id} value={brand.id}>
-                    {brand.name}
-                  </option>
-                ))}
-              </Select>
-            </li>
-          ))}
-        </ul>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{account.name}</span>
+                    {!account.active && <Badge>Desactivada</Badge>}
+                  </div>
+                  {account.username && (
+                    <p className="text-xs text-muted">@{account.username}</p>
+                  )}
+                </div>
+                <Select
+                  aria-label={`Marca de ${account.name}`}
+                  className="sm:w-48"
+                  value={account.brandId ?? ''}
+                  onChange={(event) => void assign(account, event.target.value)}
+                >
+                  <option value="">Sin marca</option>
+                  {brandList.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </Select>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       <ConfirmDialog
