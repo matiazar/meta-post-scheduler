@@ -330,14 +330,14 @@ export function CalendarView({ today }: { today: string }) {
           </Button>
         </div>
         <h2
-          className="min-w-0 flex-1 text-base font-semibold first-letter:uppercase"
+          className="order-first min-w-0 basis-full text-base font-semibold first-letter:uppercase md:order-none md:flex-1 md:basis-0"
           aria-live="polite"
         >
           {title}
         </h2>
         <Select
           aria-label="Filtrar por marca"
-          className="w-44!"
+          className="w-full! sm:w-44!"
           value={brandId}
           onChange={(event) => setBrandId(event.target.value)}
         >
