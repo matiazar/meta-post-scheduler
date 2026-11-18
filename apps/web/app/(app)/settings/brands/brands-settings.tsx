@@ -212,7 +212,7 @@ export function BrandsSettings() {
           <div
             role="tablist"
             aria-label="Cuentas por red"
-            className="mt-3 flex gap-1 overflow-x-auto border-b border-line"
+            className="mt-3 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line"
           >
             {networkTabs.map((n) => {
               const selected = n === activeNetwork;
