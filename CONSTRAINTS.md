@@ -18,11 +18,11 @@
 - TypeScript `strict: true` en ambos workspaces
 - Tests del modulo tocado en verde. Tests de DB contra `social_publisher_test` (`.env.test`), nunca la de desarrollo
 - Llamadas a Meta y R2 mockeadas en tests: nunca se publica de verdad desde un test
-- Sin dependencias nuevas fuera de las del spec sin OK de Matias
+- Sin dependencias nuevas fuera de las del spec sin OK del autor
 
 ## Prohibido para llegar a verde
 
-Ninguno de estos se agrega sin OK explicito de Matias, y si se aprueba lleva un comentario con el motivo:
+Ninguno de estos se agrega sin OK explicito del autor, y si se aprueba lleva un comentario con el motivo:
 
 - Silenciar el linter o el tipado: `eslint-disable`, `oxlint-disable`, `// @ts-ignore`, `// @ts-expect-error` sin motivo
 - Saltear o recortar tests: `.skip`, `.only`, `xit`

@@ -1,6 +1,6 @@
 # social-publisher
 
-Panel web interno (un solo usuario) para programar y publicar posts con imagen en Paginas de Facebook e Instagram Business via Graph API de Meta. Spec completo: `docs/SPEC-TECNICO.md`. Decisiones: `docs/DECISIONES.md`. Barra de calidad: `CONSTRAINTS.md`. Modo aprendizaje activo: `APRENDIZAJE-social-publisher.md`.
+Panel web interno (un solo usuario) para programar y publicar posts con imagen en Paginas de Facebook e Instagram Business via Graph API de Meta. Spec completo: `docs/SPEC-TECNICO.md`. Decisiones: `docs/DECISIONES.md`. Barra de calidad: `CONSTRAINTS.md`.
 
 ## Stack
 
@@ -28,7 +28,3 @@ Monorepo npm workspaces. `apps/api`: NestJS 12 (ESM, imports con extension `.js`
 - Errores no controlados: filtro global + `ErrorReporterService` (mail al admin, solo en produccion)
 - Tests de Meta y R2 siempre mockeados
 
-## Flujo de trabajo
-
-- Todo cambio de codigo en este proyecto (modulo, arreglo, ajuste) sigue mazar-dev
-- Antes de cada commit corre mazar-review sobre los cambios

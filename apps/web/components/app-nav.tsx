@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -10,18 +10,32 @@ import {
   LogOut,
   PenSquare,
   Tags,
+  type LucideIcon,
 } from 'lucide-react';
 import { setUnauthorizedHandler } from '@/lib/api/client';
 import { authApi } from '@/lib/api/resources';
 import { useToast } from '@/components/ui/toast';
+import { ResponsiveNav } from '@/components/shell/responsive-nav';
 
-const ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+/** Dos grupos con una linea entre ellos: trabajo y redes. */
+const WORK_ITEMS: readonly NavItem[] = [
   { href: '/', label: 'Calendario', icon: CalendarDays },
   { href: '/posts/new', label: 'Nuevo post', icon: PenSquare },
   { href: '/settings/brands', label: 'Marcas', icon: Tags },
+];
+
+const NETWORK_ITEMS: readonly NavItem[] = [
   { href: '/settings/meta', label: 'Meta', icon: Link2 },
   { href: '/settings/threads', label: 'Threads', icon: AtSign },
-] as const;
+];
+
+const GROUPS: readonly (readonly NavItem[])[] = [WORK_ITEMS, NETWORK_ITEMS];
 
 export function AppNav() {
   const pathname = usePathname();
@@ -46,44 +60,59 @@ export function AppNav() {
     }
   }
 
+  const itemClass =
+    'flex items-center gap-2 rounded-md px-2.5 py-2.5 text-sm transition-colors md:py-1.5';
+
   return (
-    <nav
-      aria-label="Principal"
-      className="flex shrink-0 items-center gap-1 border-b border-line bg-surface px-3 py-2 md:w-56 md:flex-col md:items-stretch md:border-r md:border-b-0 md:px-3 md:py-4"
-    >
-      <span className="mr-2 px-2 text-sm font-semibold md:mb-4 md:mr-0">
-        Social Publisher
-      </span>
-      <div className="flex flex-1 gap-1 md:flex-col">
-        {ITEMS.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === '/' ? pathname === '/' : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? 'page' : undefined}
-              className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
-                active
-                  ? 'bg-surface-muted font-medium text-foreground'
-                  : 'text-muted hover:bg-surface-muted hover:text-foreground'
-              }`}
-            >
-              <Icon className="size-4" aria-hidden />
-              <span className="hidden sm:inline">{label}</span>
-              <span className="sm:hidden">{label}</span>
-            </Link>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        onClick={logout}
-        className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
-      >
-        <LogOut className="size-4" aria-hidden />
-        Salir
-      </button>
-    </nav>
+    <ResponsiveNav brand="Social Publisher" ariaLabel="Principal">
+      {(close) => (
+        <>
+          <div className="flex flex-1 flex-col gap-1">
+            {GROUPS.map((group, index) => (
+              <Fragment key={group[0].href}>
+                {index > 0 && (
+                  <span
+                    role="separator"
+                    className="my-2 h-px w-auto shrink-0 bg-line"
+                  />
+                )}
+                <div className="flex flex-col gap-1">
+                  {group.map(({ href, label, icon: Icon }) => {
+                    const active =
+                      href === '/'
+                        ? pathname === '/'
+                        : pathname.startsWith(href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={close}
+                        aria-current={active ? 'page' : undefined}
+                        className={`${itemClass} ${
+                          active
+                            ? 'bg-surface-muted font-medium text-foreground'
+                            : 'text-muted hover:bg-surface-muted hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="size-4" aria-hidden />
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Fragment>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className={`${itemClass} text-muted hover:bg-surface-muted hover:text-foreground`}
+          >
+            <LogOut className="size-4" aria-hidden />
+            Salir
+          </button>
+        </>
+      )}
+    </ResponsiveNav>
   );
 }
