@@ -8,12 +8,12 @@ Fecha: 2026-11-16
 Estado: Vigente
 Origen: spec tecnico (DEC-01)
 
-Contexto: Panel interno de un solo usuario. Matias quiere aprender Node/Nest/Next.
+Contexto: Panel interno de un solo usuario. el autor quiere aprender Node/Nest/Next.
 Decision: `apps/api` (NestJS) y `apps/web` (Next.js) en un monorepo con npm workspaces.
 Alternativa descartada: Laravel + Filament.
 Por que: objetivo de aprendizaje, proyecto interno sin plazo.
 Consecuencias: mas piezas armadas a mano (panel, auth). Laravel habria sido mas rapido.
-Duda adversarial: corrio en mazar-spec antes de aprobar el spec.
+Duda adversarial: corrio antes de aprobar el spec.
 
 ## DEC-002: Scheduler propio basado en la DB, igual para FB e IG
 
@@ -31,7 +31,7 @@ Consecuencias: precision de ~1 minuto.
 
 Fecha: 2026-11-16
 Estado: Vigente
-Origen: spec tecnico (DEC-03), confirmado por Matias en el kickoff
+Origen: spec tecnico (DEC-03), confirmado por el autor en el kickoff
 
 Contexto: elegir DB y ORM.
 Decision: PostgreSQL (nativo en Windows, sin Docker) con Prisma 7 y adaptador `@prisma/adapter-pg`.
@@ -58,7 +58,7 @@ Estado: Vigente
 Origen: spec tecnico (DEC-05)
 
 Contexto: publicar en varias Paginas e IG propios.
-Decision: un solo login OAuth de Matias; IG vinculado a Pagina; app en modo Live con Standard Access, sin App Review.
+Decision: un solo login OAuth del autor; IG vinculado a Pagina; app en modo Live con Standard Access, sin App Review.
 Alternativa descartada: (a) Instagram API with Instagram Login; (b) token pegado a mano del Graph API Explorer; (c) modo desarrollo (los posts no serian publicos).
 Por que: un login da todas las Paginas y sus IG; los page tokens derivados de un token largo no vencen.
 Consecuencias: si Meta exigiera Advanced Access habria que pasar App Review. Se valida en las etapas 3 y 10.
@@ -127,9 +127,9 @@ Consecuencias: el processor de mail y los de publicacion solo se registran en `W
 
 Fecha: 2026-11-16
 Estado: Vigente
-Origen: pedido de Matias tras terminar la etapa 9
+Origen: pedido del autor tras terminar la etapa 9
 
-Contexto: el spec dejaba la IA fuera de la v1; Matias quiere ayuda para redactar copy y hashtags.
+Contexto: el spec dejaba la IA fuera de la v1; el autor quiere ayuda para redactar copy y hashtags.
 Decision: modulo `ai` con `AiClient` como unico acceso al modelo (igual que `MetaGraphClient` para Meta). El endpoint devuelve variantes y el composer las pone en el copy base; el usuario edita y publica. Va despues de la etapa 10, para no demorar la validacion del flujo de publicacion.
 Alternativa descartada: generar y publicar sin revision humana.
 Por que: un texto mal generado publicado solo en una Pagina real es un riesgo de marca.
@@ -152,9 +152,9 @@ Consecuencias: si en produccion IPv6 anda bien se puede quitar sin otros cambios
 
 Fecha: 2026-11-16
 Estado: Vigente
-Origen: pedido de Matias durante la etapa 10
+Origen: pedido del autor durante la etapa 10
 
-Contexto: el spec limitaba la v1 a Facebook e Instagram. Matias quiere sumar Threads y varias redes mas.
+Contexto: el spec limitaba la v1 a Facebook e Instagram. el autor quiere sumar Threads y varias redes mas.
 Decision: etapa 12 despues de la 10 y la 11. Primero se generaliza el publisher a un contrato por red (conexion, publicacion, limites, renovacion de token), despues se agrega Threads (12a) y el resto una por sub-etapa. Cada red tiene su propio cliente de acceso, igual que `MetaGraphClient`, y su propio OAuth y tokens cifrados (DEC-009).
 Alternativa descartada: pegar cada red dentro de los publishers de FB e IG.
 Por que: Threads usa otro host, otro login y tokens de 60 dias; las otras redes van a diferir todavia mas. Un contrato evita tocar el tick y la cola con cada red.
@@ -173,7 +173,7 @@ Implementado (12 base + 12a Threads):
 
 Fecha: 2026-11-18
 Estado: Vigente
-Origen: pedido de Matias al ver `meta_connections` y `threads_connections` (iba a haber una tabla por red: TikTok, X, Telegram)
+Origen: pedido del autor al ver `meta_connections` y `threads_connections` (iba a haber una tabla por red: TikTok, X, Telegram)
 
 - Una tabla `social_connections` (`provider`, `externalId`, `displayName`, `tokenEnc`, `refreshTokenEnc?`, `tokenExpiresAt?`, `tokenRefreshedAt?`, `status`, `lastSyncedAt?`, `data` JSON). Unica por `(provider, externalId)`. `data` es solo para lo propio de cada red: lo que se consulta va en columna.
 - `SocialAccount.connectionId` (FK, SetNull) dice de que login sale cada cuenta; reemplaza la convencion de buscar por `externalId`.

@@ -1,19 +1,19 @@
 # Spec técnico: social-publisher
 
-Estado: APROBADO por Matias (2026-11-16), con cambios: S6 sin Docker (Postgres y Redis nativos), S5 Postgres confirmado
-Autor: Matias Azar (uso interno)
+Estado: APROBADO por el autor (2026-11-16), con cambios: S6 sin Docker (Postgres y Redis nativos), S5 Postgres confirmado
+Autor: matiazar (uso personal)
 
 ## 1. Resumen
 
-Panel web interno, de un solo usuario, para programar y publicar posts con imágenes en Páginas de Facebook y cuentas de Instagram Business/Creator de las apps propias de Matias (Kalendox, Envíos Box, MercadoScanner y las que se sumen). Se sube la imagen, se escribe el copy, se eligen las cuentas destino y la fecha/hora, y un worker publica a la hora indicada usando la Graph API oficial de Meta. Si algo falla, reintenta y avisa por mail.
+Panel web interno, de un solo usuario, para programar y publicar posts con imágenes en Páginas de Facebook y cuentas de Instagram Business/Creator de las apps propias del autor. Se sube la imagen, se escribe el copy, se eligen las cuentas destino y la fecha/hora, y un worker publica a la hora indicada usando la Graph API oficial de Meta. Si algo falla, reintenta y avisa por mail.
 
-No es un SaaS: no hay registro, ni multi-tenant, ni cobros. La app de Meta va en modo **Live con Standard Access**, sin App Review: Standard Access alcanza para publicar en Páginas e IG de usuarios con rol en la app (Matias). No puede quedar en modo desarrollo porque ahí lo publicado solo lo ven los usuarios con rol en la app (ver DEC-05).
+No es un SaaS: no hay registro, ni multi-tenant, ni cobros. La app de Meta va en modo **Live con Standard Access**, sin App Review: Standard Access alcanza para publicar en Páginas e IG de usuarios con rol en la app (el autor). No puede quedar en modo desarrollo porque ahí lo publicado solo lo ven los usuarios con rol en la app (ver DEC-05).
 
 ## 2. Alcance (incluido)
 
 - Login de un único usuario administrador (credenciales en `.env`)
 - Conexión con Meta: botón "Conectar con Facebook" (OAuth), canje a token de larga duración, sincronización de Páginas y cuentas IG vinculadas
-- Marcas (una por app propia: Kalendox, Envíos Box, etc.) con sus cuentas sociales asociadas, color, hashtags y firma por defecto
+- Marcas (una por app o negocio propio) con sus cuentas sociales asociadas, color, hashtags y firma por defecto
 - Subida de imágenes (drag and drop, varias a la vez, JPG/PNG/WebP), almacenamiento del original en Cloudflare R2, y procesamiento a JPEG con la proporción elegida para el post (1:1, 4:5, 1.91:1) en modo recortar o rellenar, con URL pública
 - Composer de post: marca, cuentas destino (FB y/o IG), imagen única o carrusel (2 a 10 imágenes), copy base + override por red, fecha/hora, vista previa del recorte de IG
 - Calendario (vista mes y semana) con los posts programados, arrastrar para reprogramar, filtro por marca
@@ -32,18 +32,18 @@ No es un SaaS: no hay registro, ni multi-tenant, ni cobros. La app de Meta va en
 - App Review de Meta (no hace falta para uso propio con Standard Access)
 - HEIC (fotos de iPhone sin convertir): sharp precompilado no lo soporta. Se rechaza con mensaje claro
 - Responder comentarios o mensajes
-- Deploy a producción (se prepara después con mazar-ship)
+- Deploy a producción (se prepara después en una etapa de deploy)
 
-## 4. Supuestos (no confirmados por Matias, revisar)
+## 4. Supuestos (no confirmados por el autor, revisar)
 
 - S1. Solo imágenes en v1 (imagen única y carrusel). Video/Reels quedan para v2
 - S2. Todas las marcas tienen Página de FB; el IG de cada una es Business o Creator y está vinculado a su Página. Una marca puede tener solo una de las dos redes
 - S3. Copy base común a todas las redes, con override opcional por destino. Hashtags y firma por marca se agregan al final al componer (editables)
 - S4. Login: un solo usuario, `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` (bcrypt) en `.env`. Sin registro ni recuperar contraseña
 - S5. Base de datos PostgreSQL con Prisma
-- S6. Desarrollo local SIN Docker (decisión de Matias). Postgres 18 nativo en Windows (ya instalado) con dos bases: `social_publisher` y `social_publisher_test`. Redis nativo (hoy hay un Redis 5.0.14 para Windows; BullMQ lo tolera, se recomienda 6.2+. Si da problemas: Redis en WSL Ubuntu, que ya existe). Conexiones por `DATABASE_URL` y `REDIS_URL` en `.env` / `.env.test`
+- S6. Desarrollo local SIN Docker (decisión del autor). Postgres 18 nativo en Windows (ya instalado) con dos bases: `social_publisher` y `social_publisher_test`. Redis nativo (hoy hay un Redis 5.0.14 para Windows; BullMQ lo tolera, se recomienda 6.2+. Si da problemas: Redis en WSL Ubuntu, que ya existe). Conexiones por `DATABASE_URL` y `REDIS_URL` en `.env` / `.env.test`
 - S7. Zona horaria del panel: `America/Argentina/Tucuman`. En DB todo en UTC
-- S8. Storage: bucket de Cloudflare R2 de Matias, con acceso público (dominio r2.dev o subdominio propio). Las keys llevan un UUID para que no sean adivinables
+- S8. Storage: bucket de Cloudflare R2 propio, con acceso público (dominio r2.dev o subdominio propio). Las keys llevan un UUID para que no sean adivinables
 - S9. Reporte de errores y avisos por mail vía SMTP (credenciales en `.env`)
 - S10. Volumen bajo: decenas de posts por semana. Lejos del tope de IG (100 posts por 24 h por cuenta)
 - S11. Idioma del panel: español. Un solo idioma
@@ -63,7 +63,7 @@ No es un SaaS: no hay registro, ni multi-tenant, ni cobros. La app de Meta va en
 | Monorepo | npm workspaces: `apps/api`, `apps/web` |
 | Tests | Vitest (api, es lo que trae el generador de Nest 12; reemplaza a Jest), Playwright no en v1 |
 
-Por qué NestJS + Next.js y no Laravel (default de mazar): es un proyecto interno sin cliente ni plazo, y Matias quiere aprender Node/Nest/Next. Laravel sería más rápido de construir (scheduler, colas y panel con Filament casi gratis). Se acepta el costo extra a cambio del aprendizaje. Modo aprendizaje activo (APRENDIZAJE-social-publisher.md).
+Por qué NestJS + Next.js y no Laravel (default del autor): es un proyecto interno sin cliente ni plazo, y el autor quiere aprender Node/Nest/Next. Laravel sería más rápido de construir (scheduler, colas y panel con Filament casi gratis). Se acepta el costo extra a cambio del aprendizaje. Modo aprendizaje activo (APRENDIZAJE-social-publisher.md).
 
 ## 6. Roles y permisos
 
@@ -168,10 +168,10 @@ La web habla con la API por fetch con cookie (`credentials: include`). Sin lógi
 
 ### Meta Graph API (versión fijada en env, `META_GRAPH_VERSION`, ej. v24.0 o la vigente al scaffold)
 
-Prerrequisitos manuales (los hace Matias en developers.facebook.com, quedan como checklist en el README):
+Prerrequisitos manuales (los hace el autor en developers.facebook.com, quedan como checklist en el README):
 1. App tipo Business con producto "Facebook Login for Business"
 2. Permisos: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`, `business_management`
-3. App en modo **Live** con Standard Access en esos permisos (sin App Review), Matias con rol admin. Para pasar a Live Meta pide URL de política de privacidad, ícono, categoría e instrucciones de borrado de datos: alcanza una página simple en cualquier dominio propio. Verificar en la etapa 10 que un post sea visible desde una cuenta sin rol en la app
+3. App en modo **Live** con Standard Access en esos permisos (sin App Review), el autor con rol admin. Para pasar a Live Meta pide URL de política de privacidad, ícono, categoría e instrucciones de borrado de datos: alcanza una página simple en cualquier dominio propio. Verificar en la etapa 10 que un post sea visible desde una cuenta sin rol en la app
 4. Redirect URI: `http://localhost:3001/meta/callback` (dev) y la de producción después
 5. Cada IG Business/Creator vinculado a su Página
 
@@ -237,14 +237,14 @@ Descartadas: (a) delayed jobs de BullMQ por post: reprogramar o cancelar exige u
 Por qué: la DB es la única fuente de verdad, reprogramar es un UPDATE, y si Redis se reinicia los targets encolados vuelven solos a PENDING. Precisión de hasta ~1 minuto, suficiente.
 
 **DEC-03. PostgreSQL + Prisma.**
-Descartada: MySQL + TypeORM. Por qué: Prisma es el ORM con mejor DX en TS y el más usado con Nest hoy; Postgres soporta `SKIP LOCKED` y es el default del ecosistema. Matias ya conoce MySQL, pero aprender Postgres suma.
+Descartada: MySQL + TypeORM. Por qué: Prisma es el ORM con mejor DX en TS y el más usado con Nest hoy; Postgres soporta `SKIP LOCKED` y es el default del ecosistema. el autor ya conocía MySQL, pero aprender Postgres suma.
 
 **DEC-04. Imágenes en R2 con bucket público y keys con UUID.**
 Descartadas: (a) servirlas desde el propio VPS: obliga a tener el server expuesto y con buen ancho de banda desde local; (b) URLs firmadas: IG y FB descargan la imagen en el momento de publicar y una URL vencida rompe reintentos tardíos. Por qué: IG exige URL pública; R2 no cobra egress. Riesgo aceptado: cualquiera con la URL ve la imagen (son imágenes de marketing, públicas igual).
 
 **DEC-05. Una conexión Meta vía Facebook Login (OAuth) y publicación de IG por la Graph API de Facebook (IG vinculado a Página).**
 Modo de la app: **Live con Standard Access**, sin App Review. En modo desarrollo lo que se publica solo lo ven los usuarios con rol en la app (doc de Meta "App Modes"), así que los seguidores no verían los posts de FB. Standard Access permite usar los permisos con cuentas de usuarios que tienen rol en la app, que es el caso.
-Descartadas: (a) "Instagram API with Instagram Login": requiere un login por cada cuenta IG y no cubre FB; (b) pegar a mano un token del Graph API Explorer: funciona pero hay que repetirlo y es fácil equivocarse de permisos; (c) modo desarrollo: los posts no serían públicos. Por qué: un solo login de Matias da todas las Páginas y sus IG; los page tokens derivados de un token largo no vencen.
+Descartadas: (a) "Instagram API with Instagram Login": requiere un login por cada cuenta IG y no cubre FB; (b) pegar a mano un token del Graph API Explorer: funciona pero hay que repetirlo y es fácil equivocarse de permisos; (c) modo desarrollo: los posts no serían públicos. Por qué: un solo login del autor da todas las Páginas y sus IG; los page tokens derivados de un token largo no vencen.
 Riesgo: si Meta exigiera Advanced Access para algún permiso en Live, habría que pasar App Review. Se valida en la etapa 3 (conexión) y en la etapa 10 (visibilidad real) antes de construir más encima.
 
 **DEC-06. Original guardado al subir; versión JPEG generada por post con una proporción única para todo el post, usada para FB e IG.**
@@ -345,9 +345,9 @@ Umbrales:
 - TypeScript `strict: true` en ambos workspaces
 - Tests del módulo tocado en verde; tests contra DB `social_publisher_test` (nunca la de desarrollo), `.env.test`
 - Las llamadas a Meta y R2 se mockean en tests (nunca se publica de verdad desde un test)
-- Sin dependencias nuevas fuera de las del spec sin OK de Matias
+- Sin dependencias nuevas fuera de las del spec sin OK del autor
 
-Prohibido para llegar a verde: lo de la plantilla de mazar (`eslint-disable`, `@ts-ignore`, `.skip`, `.only`, bajar reglas, excluir archivos, `--no-verify`, catch vacío, debilitar asserts).
+Prohibido para llegar a verde: lo de la plantilla de calidad del proyecto (`eslint-disable`, `@ts-ignore`, `.skip`, `.only`, bajar reglas, excluir archivos, `--no-verify`, catch vacío, debilitar asserts).
 
 ## 12. Plan de etapas
 
@@ -363,11 +363,11 @@ Prohibido para llegar a verde: lo de la plantilla de mazar (`eslint-disable`, `@
 | 7 | Web: base | Layout, login, cliente API, settings Meta, settings marcas (aplicar skills de diseño C6) | 1, 2, 3 |
 | 8 | Web: composer | Dropzone, reordenar, modo crop/pad, copy + tabs por red, contador, preview IG/FB, fecha/hora, acciones | 4, 5, 7 |
 | 9 | Web: calendario y detalle | Vista mes/semana, chips por marca/estado, drag para reprogramar, filtro, Sheet de detalle con intentos y reintentar | 5, 6, 8 |
-| 10 | Prueba punta a punta | Publicación real en una Página y un IG (manual, con Matias), verificar visibilidad desde una cuenta sin rol en la app, ajustes | 6, 9 |
+| 10 | Prueba punta a punta | Publicación real en una Página y un IG (manual, hecha por el autor), verificar visibilidad desde una cuenta sin rol en la app, ajustes | 6, 9 |
 | 11 | IA para copy y hashtags | Modulo `ai` (`AiClient` unico acceso al modelo, `POST /ai/suggest-copy`: marca + idea corta + red -> 2 o 3 variantes de copy con hashtags, usando hashtags y firma de la marca como contexto). Boton "Sugerir con IA" en el composer que solo rellena el copy base (nunca publica). Key en `.env`, tests con el modelo mockeado, limite de uso por minuto | 8, 10 |
 | 12 | Threads y mas redes | Primera red nueva: Threads (host `graph.threads.com`, OAuth propio con `threads_basic` y `threads_content_publish`, token de 60 dias con job de renovacion, publicacion en dos pasos, texto de hasta 500 caracteres, imagen o carrusel por URL publica de R2, limite diario propio). Antes de Threads se generaliza el publisher a un contrato por red (conexion, publicacion, limites de texto e imagen, renovacion de token) para que cada red siguiente sea un modulo nuevo sin tocar el tick ni la cola. Las demas redes se agregan despues con el mismo contrato, una por sub-etapa (12a Threads, 12b en adelante a definir) | 6, 8, 10 |
 
-Después: mazar-ship para el deploy al VPS (Docker Compose o PM2 + Nginx, HTTPS, redirect URI de producción).
+Después: deploy al VPS (Docker Compose o PM2 + Nginx, HTTPS, redirect URI de producción).
 
 ## 13. Preguntas abiertas
 
@@ -378,6 +378,6 @@ Respondidas 2026-11-16: spec aprobado; S5 Postgres confirmado; S6 sin Docker (ve
 3. ¿Copy base + override por red, con hashtags y firma por marca (S3)?
 4. ¿Login con un solo usuario en `.env` (S4)?
 5. ¿Postgres + Prisma (S5) y tenés Docker en Windows (S6)?
-6. ¿Autorizás commits locales por etapa terminada, sin push? (lo pregunta mazar-init al arrancar en Claude Code)
+6. ¿Autorizás commits locales por etapa terminada, sin push?
 7. ¿Bucket R2 con dominio propio (ej. `media.tudominio.com`) o r2.dev?
 8. ¿Tenés una URL de política de privacidad para poner la app de Meta en Live (puede ser una página simple en el sitio de cualquiera de tus apps)?
