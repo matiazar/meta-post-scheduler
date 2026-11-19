@@ -1,7 +1,14 @@
 // Crea el .env para Docker a partir de .env.example: genera las claves y pide mail y contrasena.
 // Uso: docker compose run --rm init      (o, con Node: node scripts/init-env.mjs [carpeta])
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  chownSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { resolve } from 'node:path';
 import readline from 'node:readline';
 import { hash } from 'bcryptjs';
@@ -70,10 +77,18 @@ try {
   process.exit(1);
 }
 // Solo el dueño lee el .env (tiene claves). 'wx': falla si el archivo aparecio mientras tanto.
-// Como root (dentro del contenedor) no se restringe: en Linux el archivo quedaria de root
-// y la persona no podria leerlo desde su usuario.
-const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
-writeFileSync(target, text, { flag: 'wx', ...(isRoot ? {} : { mode: 0o600 }) });
+writeFileSync(target, text, { flag: 'wx', mode: 0o600 });
+// Dentro del contenedor se corre como root: el archivo se le entrega al dueño de la carpeta
+// montada, para que la persona lo pueda leer desde su usuario. Si no se puede (algunos
+// sistemas de archivos de Docker Desktop), se abre a 0644 antes que dejarlo ilegible.
+if (typeof process.getuid === 'function' && process.getuid() === 0) {
+  try {
+    const owner = statSync(dir);
+    chownSync(target, owner.uid, owner.gid);
+  } catch {
+    chmodSync(target, 0o644);
+  }
+}
 
 console.log('\n.env creado con las claves generadas.');
 console.log('Falta completar a mano lo que dice CAMBIAR: SMTP, Meta y R2 (ver el tutorial del README).');
