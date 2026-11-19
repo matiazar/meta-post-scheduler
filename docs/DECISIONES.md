@@ -181,3 +181,19 @@ Origen: pedido del autor al ver `meta_connections` y `threads_connections` (iba 
 - Las redes que renuevan token registran un `ConnectionRefresher` (`refreshWhenLeftMs`, `minAgeMs`, `refresh`, `isTokenRejected`); hoy `ThreadsRefresher`. `TickProcessor` llama a `ConnectionsService.refreshDue()` una vez por hora. Meta (token que no se renueva) y Telegram (bot token que no vence) no registran ninguno.
 - Sumar una red con login propio: un valor en `ConnectionProvider`, una entrada en `CONNECTION_INFO`, su servicio de OAuth y, si renueva, su refresher. Sin tablas nuevas.
 - Migracion en dos pasos: A (`20261118120000_social_connections`) crea la tabla, copia los datos (tokens tal cual, misma `TOKEN_ENC_KEY`; de Meta solo la conexion mas reciente) y rellena `connectionId`; las tablas viejas quedan sin uso. B (`20261118130000_drop_old_connections`) borra `meta_connections` y `threads_connections`; el enum de estado ya quedo renombrado a `ConnectionStatus` en A.
+
+## DEC-015: Docker Compose para quien usa el proyecto (no para desarrollar)
+
+Fecha: 2026-11-19
+Estado: Vigente
+Origen: pedido del autor, para publicar el repo y que otras personas lo levanten rapido
+
+- Un `Dockerfile` con tres destinos (`api`, `web` y la base compartida) y un `docker-compose.yml` con Postgres, Redis, `migrate` (corre `prisma migrate deploy` y termina), `api`, `worker` y `web`. La API y el worker esperan a que `migrate` termine bien.
+- El desarrollo del proyecto sigue sin Docker (Postgres y Redis nativos): el compose es para usarlo, no para programarlo.
+- La API y el worker usan la misma imagen con distinto comando. Se dejan las dependencias de desarrollo en la imagen porque `prisma migrate deploy` necesita el CLI de Prisma.
+- `NEXT_PUBLIC_API_URL` se incrusta al compilar la web (limitacion de Next): cambiar la direccion de la API obliga a reconstruir la imagen.
+- Los contenedores corren con `NODE_ENV=production`, asi que las cookies son `Secure`: sirve en `localhost` (Chrome, Edge, Firefox) y exige HTTPS en un servidor. Safari no acepta cookies `Secure` por HTTP.
+- `docker compose run --rm init` (`scripts/init-env.mjs`) crea el `.env` desde `.env.example` generando las claves y el hash de la contrasena, para que no haga falta Node en la maquina.
+- Postgres y Redis no publican puertos al host.
+- Los contenedores de la API, el worker y la web corren como `node` (sin root); la web recibe `SIGTERM` porque arranca `next start` directo, sin `npm run`. Los puertos se publican solo en `127.0.0.1`: para abrirlo a otras maquinas hay que poner un proxy con HTTPS delante.
+- `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` y `META_REDIRECT_URI` se derivan de `WEB_PORT` y `API_PORT`; solo se definen a mano con dominios propios. `init` es su propia imagen (solo bcryptjs) y su logica de plantilla tiene tests (`npm run test:scripts`).

@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.omc
+.claude
+graphify-out
+*.dump
+*.log
+apps/api/src/generated

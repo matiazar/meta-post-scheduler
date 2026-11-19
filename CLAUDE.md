@@ -4,7 +4,7 @@ Panel web interno (un solo usuario) para programar y publicar posts con imagen e
 
 ## Stack
 
-Monorepo npm workspaces. `apps/api`: NestJS 12 (ESM, imports con extension `.js`), Prisma 7 + PostgreSQL, BullMQ + Redis, Vitest, oxlint. `apps/web`: Next.js 16 (App Router), Tailwind. Sin Docker: Postgres y Redis nativos.
+Monorepo npm workspaces. `apps/api`: NestJS 12 (ESM, imports con extension `.js`), Prisma 7 + PostgreSQL, BullMQ + Redis, Vitest, oxlint. `apps/web`: Next.js 16 (App Router), Tailwind. El desarrollo es sin Docker (Postgres y Redis nativos). Docker (`Dockerfile`, `docker-compose.yml`) es solo para quien usa el proyecto: ver DEC-015.
 
 ## Comandos
 
@@ -15,6 +15,8 @@ Monorepo npm workspaces. `apps/api`: NestJS 12 (ESM, imports con extension `.js`
 - Typecheck: `npm run typecheck` (o `-w apps/api` / `-w apps/web`)
 - Prisma (desde `apps/api`): `npm run db:generate`, `npm run db:migrate`
 - Entorno: copiar `apps/api/.env.example` a `.env` y `.env.test` (otra base: `social_publisher_test`)
+- Tests de los scripts: `npm run test:scripts`
+- Docker (uso, no desarrollo): `docker compose run --rm init` crea el `.env` de la raiz; `docker compose up -d --build` levanta todo. Las variables de Docker (`.env` raiz) son otras que las de `apps/api/.env`
 
 - Al instalar un paquete nuevo, agregarlo a `docs/STACK-Y-PAQUETES.md` (que es y para que se usa, en español simple)
 

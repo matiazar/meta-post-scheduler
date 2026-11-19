@@ -29,7 +29,44 @@ Monorepo con npm workspaces: `apps/api` (API + worker que publica) y `apps/web`.
 
 ---
 
-## Tutorial: ponerlo a andar
+## Inicio rápido con Docker (recomendado)
+
+La forma más rápida: Postgres, Redis, la API, el worker y la web corren en contenedores. Solo necesitás [Docker](https://docs.docker.com/get-docker/) (Docker Desktop en Windows/macOS) y git.
+
+```bash
+git clone <url-del-repo>
+cd social-publisher
+
+# 1. Crear tu .env: genera las claves secretas y te pide el mail y la contraseña para entrar
+docker compose run --rm init
+
+# 2. Abrir .env y completar lo que todavía dice CAMBIAR: SMTP, Meta y R2
+#    (cuentas y claves: pasos 5 y 6 del tutorial manual de abajo)
+
+# 3. Construir y levantar todo
+docker compose up -d --build
+```
+
+Abrí http://localhost:3000 y entrá con el mail y la contraseña del paso 1.
+
+| Tarea | Comando |
+|-------|---------|
+| Ver logs (el worker es el que publica) | `docker compose logs -f worker api` |
+| Parar (los datos se conservan) | `docker compose down` |
+| Actualizar después de un `git pull` | `docker compose up -d --build` |
+| Borrar todo, incluida la base de datos | `docker compose down -v` |
+
+Notas:
+
+- La primera vez, `docker compose run --rm init` descarga y prepara una imagen chica; el primer `up --build` compila todo y tarda unos minutos. Las siguientes son rápidas.
+- Los puertos 3000 (web) y 3001 (API) tienen que estar libres. Para cambiarlos, editá `WEB_PORT` y `API_PORT` en `.env` y reconstruí (`docker compose up -d --build`): la dirección de la web, la de la API y la redirect URI de Meta los siguen solas. Acordate de registrar la nueva redirect URI en tu app de Meta. La dirección de la API queda incrustada en la imagen de la web al compilar, por eso hay que reconstruir.
+- La web y la API escuchan solo en `127.0.0.1`: no se alcanzan desde otras máquinas. Postgres y Redis no se exponen.
+- Los contenedores corren sin root y en modo producción, cuyas cookies de sesión son `Secure`. Chrome, Edge y Firefox las aceptan en `localhost`; Safari no por HTTP plano. Para usarlo desde otra máquina, ponelo detrás de un proxy con HTTPS (Caddy, Nginx) y poné tus dominios reales en `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` y `META_REDIRECT_URI` en `.env` (las líneas comentadas de `.env.example`).
+- Sin los valores de Meta y R2 podés entrar y mirar, pero no conectar cuentas ni subir imágenes.
+
+## Instalación manual (sin Docker)
+
+¿Preferís correrlo nativo, o querés tocar el código? Seguí este tutorial. Los pasos 5 y 6 también hacen falta con Docker.
 
 Vas a necesitar crear cuentas en algunos servicios. Todos tienen plan gratuito suficiente para uso personal. Calculá una hora la primera vez, casi toda en la app de Meta.
 
@@ -166,6 +203,8 @@ Poné `ANTHROPIC_API_KEY` en `apps/api/.env`. En el composer aparece "Sugerir co
 | Instagram rechaza la imagen | La URL de R2 no es pública, o la imagen no cumple las proporciones que IG acepta |
 | No aparece mi cuenta de Instagram | No es Business/Creator, o no está vinculada a una Página |
 | Meta dice que no tenés permiso | La app no está en modo Live, o tu usuario no tiene rol en la app |
+| `docker compose up --build` falla con un error inesperado (código 1, 137 o 146) | A Docker le falta RAM para compilar la API y la web juntas (2 GB no alcanza). Dale 4 GB o más, o construí de a uno: `COMPOSE_PARALLEL_LIMIT=1 docker compose build` |
+| El servicio `migrate` falla con "Authentication failed" | El volumen de Postgres se creó con otro `POSTGRES_PASSWORD` (borraste y regeneraste el `.env`). Borralo con `docker compose down -v` (esto borra la base de datos) |
 
 ## Comandos
 
@@ -176,6 +215,7 @@ Poné `ANTHROPIC_API_KEY` en `apps/api/.env`. En el composer aparece "Sugerir co
 | `npm run test:e2e -w apps/api` | tests de integración (usan la base `_test`) |
 | `npm run typecheck` | tipos de API y web |
 | `npm run lint` | linter |
+| `npm run test:scripts` | tests del asistente del .env de Docker |
 | `npm run hash-password` | genera el hash de tu contraseña |
 
 Las llamadas a Meta y a R2 están mockeadas en los tests: ninguno publica de verdad. Más sobre la barra de calidad en [`CONSTRAINTS.md`](CONSTRAINTS.md).

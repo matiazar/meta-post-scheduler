@@ -50,7 +50,7 @@ export const envSchema = z.object({
   R2_PUBLIC_BASE_URL: z.url(),
   // IA para copy y hashtags (etapa 11). Opcional: sin key la API arranca y el endpoint responde 503
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  AI_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+  AI_MODEL: z.string().min(1).default('claude-haiku-5-5'),
   // Threads (etapa 12). Login propio: App ID y secreto del caso de uso Threads (no los de Meta).
   // Opcionales: sin las tres, la API arranca y conectar Threads responde 503
   THREADS_APP_ID: z.string().min(1).optional(),

@@ -29,7 +29,44 @@ npm workspaces monorepo: `apps/api` (API + the worker that publishes) and `apps/
 
 ---
 
-## Tutorial: getting it running
+## Quick start with Docker (recommended)
+
+The fastest way: Postgres, Redis, the API, the worker and the web run in containers. You only need [Docker](https://docs.docker.com/get-docker/) (Docker Desktop on Windows/macOS) and git.
+
+```bash
+git clone <repo-url>
+cd social-publisher
+
+# 1. Create your .env: generates the secret keys and asks for your login email and password
+docker compose run --rm init
+
+# 2. Open .env and fill in what still says CAMBIAR: SMTP, Meta and R2
+#    (accounts and keys: steps 5 and 6 of the manual tutorial below)
+
+# 3. Build and start everything
+docker compose up -d --build
+```
+
+Open http://localhost:3000 and log in with the email and password you gave in step 1.
+
+| Task | Command |
+|------|---------|
+| See logs (the worker is the one that publishes) | `docker compose logs -f worker api` |
+| Stop (your data is kept) | `docker compose down` |
+| Update after a `git pull` | `docker compose up -d --build` |
+| Wipe everything, including the database | `docker compose down -v` |
+
+Notes:
+
+- The first `docker compose run --rm init` downloads and prepares a small image; the first `up --build` compiles everything and takes a few minutes. Later runs are fast.
+- Ports 3000 (web) and 3001 (API) must be free. To change them, edit `WEB_PORT` and `API_PORT` in `.env` and rebuild (`docker compose up -d --build`): the web address, the API address and the Meta redirect URI follow them. Remember to register the new redirect URI in your Meta app. The API address is baked into the web image at build time, hence the rebuild.
+- The web and the API listen only on `127.0.0.1`, so they are not reachable from other machines. Postgres and Redis are not exposed at all.
+- The containers run as a non-root user in production mode, whose session cookies are `Secure`. Chrome, Edge and Firefox accept them on `localhost`; Safari doesn't over plain HTTP. To use it from another machine, put it behind an HTTPS reverse proxy (Caddy, Nginx) and set `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` and `META_REDIRECT_URI` to your real domains in `.env` (the commented lines in `.env.example`).
+- Without the Meta and R2 values you can log in and look around, but you can't connect accounts or upload images.
+
+## Manual setup (without Docker)
+
+Prefer to run it natively, or want to hack on the code? Follow this tutorial. Steps 5 and 6 are also needed with Docker.
 
 You'll need accounts on a few services. All have free tiers that are enough for personal use. Allow about an hour the first time, most of it on the Meta app.
 
@@ -166,6 +203,8 @@ Set `ANTHROPIC_API_KEY` in `apps/api/.env`. The composer then shows "Suggest wit
 | Instagram rejects the image | The R2 URL isn't public, or the image doesn't meet IG's aspect-ratio rules |
 | My Instagram account doesn't show up | It isn't Business/Creator, or isn't linked to a Page |
 | Meta says you don't have permission | The app isn't in Live mode, or your user has no role in the app |
+| `docker compose up --build` fails with an unexpected error (exit code 1, 137 or 146) | Docker has too little RAM to compile the API and the web together (2 GB is not enough). Give Docker 4 GB or more, or build one at a time: `COMPOSE_PARALLEL_LIMIT=1 docker compose build` |
+| The `migrate` service fails with "Authentication failed" | The Postgres volume was created with an older `POSTGRES_PASSWORD` (you deleted and regenerated `.env`). Wipe it with `docker compose down -v` (this erases the database) |
 
 ## Commands
 
@@ -176,6 +215,7 @@ Set `ANTHROPIC_API_KEY` in `apps/api/.env`. The composer then shows "Suggest wit
 | `npm run test:e2e -w apps/api` | integration tests (use the `_test` database) |
 | `npm run typecheck` | API and web types |
 | `npm run lint` | linter |
+| `npm run test:scripts` | tests of the Docker .env assistant |
 | `npm run hash-password` | generates your password hash |
 
 Meta and R2 calls are mocked in tests: none of them publishes for real. More on the quality bar in [`CONSTRAINTS.md`](CONSTRAINTS.md).
